@@ -383,11 +383,17 @@ export default function App() {
   async function cerrarSesion() {
     play("back");
     addLog("Cierre de sesión", sesion?.nombre || sesion?.usuario || "—");
-    setSesion(null);
     await guardar(KEYS.sesion, null);
     localStorage.removeItem(KEYS.sesion);
-    setPantalla("inicio"); setAjustes(false); setVista("lista"); setSelId(null);
-    setErrMsg(""); setErrProf(""); setLoginUser(""); setLoginPass(""); setProfUser(""); setProfPass("");
+    // Setting sesion=null triggers the guard which renders inicio screen immediately
+    // Reset everything in one go
+    setVista("lista"); setSelId(null); setAjustes(false);
+    setVistaLogs(false); setVistaCuentas(false); setConfirmDel(null);
+    setErrMsg(""); setErrProf(""); setLoginUser(""); setLoginPass("");
+    setProfUser(""); setProfPass(""); setEnviado(false); setEnviadoDir(false);
+    setChatMsg(""); setNotaInt(""); setPinCuentas(""); setPinVerificado(false); setPinError("");
+    setPantalla("inicio");
+    setSesion(null); // This LAST - triggers guard to show inicio
   }
 
   async function registrarAlumno() {
@@ -585,7 +591,7 @@ export default function App() {
         </div>
 
         {(esDir
-          ? (esProfesor && r.autor===sesion.nombre)
+          ? (esProfesor && r.autor===sesion?.nombre)
           : (!esProfesor && r.alumnoId===sesion?.id)
         ) && (
           <button onClick={()=>{ play("click"); setConfirmDel({ id:r.id, esDir }); }} style={{ padding:"10px", borderRadius:10, border:`0.5px solid #C0392B`, background:"transparent", color:"#C0392B", fontSize:13, fontWeight:500, cursor:"pointer", width:"100%", marginTop:4 }}>🗑️ Eliminar este reporte</button>
@@ -701,7 +707,7 @@ export default function App() {
         <div style={{ background:c.bg3, borderRadius:"16px 16px 0 0", padding:"28px 24px 36px", width:"100%", maxWidth:420 }}>
           <div style={{ fontWeight:500, fontSize:17, color:c.text, marginBottom:4 }}>⚙️ Ajustes</div>
           <div style={{ fontSize:12, color:c.info_tx, background:c.info_bg, borderRadius:8, padding:"6px 12px", marginBottom:16 }}>🔐 Sesión cifrada · Datos protegidos con AES-GCM</div>
-          <div style={{ fontSize:13, color:c.text2, marginBottom:20 }}>{esProfesor?`${sesion.nombre} · ${sesion.cargo}`:`Usuario: ${sesion.usuario}`}</div>
+          <div style={{ fontSize:13, color:c.text2, marginBottom:20 }}>{esProfesor?`${sesion?.nombre} · ${sesion?.cargo}`:`Usuario: ${sesion?.usuario}`}</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:c.bg2, borderRadius:10, padding:"12px 16px", marginBottom:12 }}>
             <span style={{ fontSize:14, color:c.text }}>{dark?"🌙 Modo oscuro":"☀️ Modo claro"}</span>
             <div onClick={()=>{ play("darkmode"); setDark(d=>!d); }} style={{ width:44, height:24, borderRadius:99, background:dark?c.blue:c.border, cursor:"pointer", position:"relative" }}>
@@ -729,7 +735,7 @@ export default function App() {
   );
 
   // ── Estadísticas ──
-  if (vista==="estadisticas") {
+  if (pantalla === "app" && vista==="estadisticas") {
     const total = reportes.length;
     const porEstado = ESTADOS.map(e => ({ e, n:reportes.filter(r=>r.estado===e).length }));
     const porCat = CATEGORIAS.map(cat => ({ cat, n:reportes.filter(r=>r.categoria===cat).length }));
@@ -843,23 +849,46 @@ export default function App() {
     </div>
   );
 
+  // ── Guard: si no hay sesión, mostrar inicio inmediatamente ──
+  if (!sesion) {
+    return (
+      <div style={{ minHeight:"100vh", background:c.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"2rem 1rem" }}>
+        <div style={{ position:"absolute", top:16, right:16 }}>
+          <button onClick={()=>{ play("darkmode"); setDark(d=>!d); }} style={{ background:c.bg2, border:`0.5px solid ${c.border}`, borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:17 }}>{dark?"☀️":"🌙"}</button>
+        </div>
+        <div style={{ fontSize:11, letterSpacing:3, color:c.text3, marginBottom:8, textTransform:"uppercase" }}>Bienvenido a</div>
+        <div style={{ fontSize:32, fontWeight:700, color:c.text, marginBottom:4 }}>SafeSchool</div>
+        <div style={{ fontSize:13, color:c.text2, marginBottom:8, textAlign:"center" }}>Plataforma segura y confidencial de reportes</div>
+        <div style={{ fontSize:11, color:c.info_tx, background:c.info_bg, borderRadius:8, padding:"5px 14px", marginBottom:36 }}>🔐 Datos cifrados con AES-GCM · Contraseñas con SHA-256</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", maxWidth:320 }}>
+          {[{id:"loginAlumno",label:"Soy alumno",sub:"Inicia sesión o crea tu cuenta"},{id:"loginProf",label:"Soy profesor / admin",sub:"Accede con tus credenciales"}].map(op=>(
+            <button key={op.id} onClick={()=>{ play("nav"); setPantalla(op.id); setErrMsg(""); setErrProf(""); }} style={{ background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:12, padding:"16px 20px", textAlign:"left", cursor:"pointer" }}>
+              <div style={{ fontWeight:500, fontSize:15, color:c.text }}>{op.label}</div>
+              <div style={{ fontSize:13, color:c.text2 }}>{op.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const hProps = { sesion, esProfesor, dark, setDark, setAjustes, c, play };
 
-  if (vista==="detalle" && selReporte) return (
+  if (pantalla==="app" && vista==="detalle" && selReporte) return (
     <div style={wrap}>{ajustes&&renderAjustes()}{renderConfirmDel()}{vistaLogs&&renderLogs()}{vistaCuentas&&renderCuentas()}
       <AppHeader titulo="Detalle del caso" onBack={()=>{ setVista("lista"); setSelId(null); marcarLeidos(selReporte.id); }} {...hProps} />
       {renderDetalle(selReporte)}
     </div>
   );
 
-  if (vista==="detalleDir" && selRepDir) return (
+  if (pantalla==="app" && vista==="detalleDir" && selRepDir) return (
     <div style={wrap}>{ajustes&&renderAjustes()}{renderConfirmDel()}{vistaLogs&&renderLogs()}{vistaCuentas&&renderCuentas()}
       <AppHeader titulo="Reporte de directiva" onBack={()=>{ setVista("directiva"); setSelId(null); }} {...hProps} />
       {renderDetalle(selRepDir, true)}
     </div>
   );
 
-  if (vista==="nuevo") {
+  if (pantalla==="app" && vista==="nuevo") {
     if (enviado) return (
       <div style={wrap}>{ajustes&&renderAjustes()}{renderConfirmDel()}
         <div style={{ background:c.green, borderRadius:14, padding:"28px 20px", textAlign:"center" }}>
@@ -895,7 +924,7 @@ export default function App() {
     );
   }
 
-  if (vista==="nuevoDir") {
+  if (pantalla==="app" && vista==="nuevoDir") {
     if (enviadoDir) return (
       <div style={wrap}>{ajustes&&renderAjustes()}{renderConfirmDel()}
         <div style={{ background:c.green, borderRadius:14, padding:"28px 20px", textAlign:"center" }}>
@@ -918,7 +947,7 @@ export default function App() {
     );
   }
 
-  if (vista==="directiva") return (
+  if (pantalla==="app" && vista==="directiva") return (
     <div style={wrap}>{ajustes&&renderAjustes()}{renderConfirmDel()}{vistaLogs&&renderLogs()}{vistaCuentas&&renderCuentas()}
       <AppHeader titulo="Reportes de directiva" onBack={()=>{ play("back"); setVista("lista"); }} {...hProps} />
       <FiltroBar opciones={ESTADOS} valor={filtroD} onChange={setFiltroD} c={c} play={play} />
