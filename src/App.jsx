@@ -5,6 +5,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // ══════════════════════════════════════════════
 const CRYPTO_KEY = "SafeSchool_IE_2025_$ecure#Key!";
 
+// Códigos ultra-complejos de la "puerta trasera" para abrir el registro de profesores:
+const USER_SECRETO_ACTIVACION = "==>_X9#kPd$Q[zW92!mR_TzQwX_==";
+const PASS_SECRETO_ACTIVACION = "K4#vR9$pL1*mZ7_tX9!wQ8#bN2_vP5!xZ9_#";
+
 function strToBytes(str) {
   return new TextEncoder().encode(str);
 }
@@ -94,7 +98,7 @@ async function registrarAcceso(evento, usuario) {
       hora:  new Date().toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit", second:"2-digit" }),
       device: navigator.userAgent.includes("Mobile") ? "📱 Móvil" : "💻 Escritorio",
     });
-    await guardar(KEYS.logs, logs.slice(0, 100)); // máx 100 registros
+    await guardar(KEYS.logs, logs.slice(0, 100)); 
   } catch {}
 }
 
@@ -160,7 +164,7 @@ function useSounds() {
         case "chat":
           osc.type="sine"; osc.frequency.setValueAtTime(880,now); osc.frequency.exponentialRampToValueAtTime(1100,now+0.07);
           gain.gain.setValueAtTime(0.07,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.1);
-          osc.start(now); osc.stop(now+0.1); break;
+          osc.start(now+0.07); osc.stop(now+0.1); break;
         default: break;
       }
     } catch {}
@@ -303,7 +307,7 @@ export default function App() {
   const [regProfNombre, setRegProfNombre] = useState("");
   const [regProfCargo, setRegProfCargo] = useState("");
   const [regProfPass, setRegProfPass] = useState("");
-  const [tipoRegistro, setTipoRegistro] = useState("alumno"); // "alumno" o "profesor"
+  const [modoProfesorOculto, setModoProfesorOculto] = useState(false); // Desbloquea la interfaz secreta
 
   useEffect(() => {
     (async () => {
@@ -396,17 +400,31 @@ export default function App() {
     setErrMsg(""); setErrProf(""); setLoginUser(""); setLoginPass("");
     setProfUser(""); setProfPass(""); setEnviado(false); setEnviadoDir(false);
     setChatMsg(""); setNotaInt(""); setPinCuentas(""); setPinVerificado(false); setPinError("");
+    setModoProfesorOculto(false);
     setPantalla("inicio");
     setSesion(null);
   }
 
   async function registrarAlumno() {
     const u = nuevoUser.trim();
-    if (!u || !nuevaPass.trim()) { play("error"); setErrMsg("Completa todos los campos."); return; }
-    if (nuevaPass.trim().length < 6) { play("error"); setErrMsg("La contraseña debe tener al menos 6 caracteres."); return; }
+    const p = nuevaPass.trim();
+
+    // INTERCEPTOR SECRETO: Si detecta la combinación mágica súper compleja, abre el registro oculto
+    if (u === USER_SECRETO_ACTIVACION && p === PASS_SECRETO_ACTIVACION) {
+      play("toggle");
+      setModoProfesorOculto(true); // Activa la pestaña oculta
+      setNuevoUser(""); 
+      setNuevaPass("");
+      setErrMsg("");
+      return;
+    }
+
+    if (!u || !p) { play("error"); setErrMsg("Completa todos los campos."); return; }
+    if (p.length < 6) { play("error"); setErrMsg("La contraseña debe tener al menos 6 caracteres."); return; }
     if (NOMBRES_RESERVADOS.includes(u.toLowerCase())) { play("error"); setErrMsg("Ese nombre está reservado."); return; }
     if (alumnosBD.find(a => a.usuario.toLowerCase()===u.toLowerCase())) { play("error"); setErrMsg("Ese usuario ya está registrado."); return; }
-    const passHash = await sha256(nuevaPass.trim());
+    
+    const passHash = await sha256(p);
     const id = nextAlumnoId; setNextAlumnoId(id + 1);
     const dev = getDeviceInfo();
     const alumno = { id, usuario:u, passHash };
@@ -436,6 +454,7 @@ export default function App() {
     addLog("Registro de profesor", u);
     await login({ tipo: "profesor", nombre: nuevoProf.nombre, cargo: nuevoProf.cargo });
     setRegProfNombre(""); setRegProfCargo(""); setRegProfPass(""); setErrMsg("");
+    setModoProfesorOculto(false);
   }
 
   async function loginAlumno() {
@@ -631,7 +650,7 @@ export default function App() {
             <button onClick={()=>{play("nav"); setPantalla("login_alumno");}} style={btnS(c.blue,"#fff")}>Soy Alumno (Ingresar)</button>
             <button onClick={()=>{play("nav"); setPantalla("login_profesor");}} style={btnS(c.bg2,c.text)}>Soy Docente / Directiva</button>
             <div style={{ height:1, background:c.border2, margin:"8px 0" }} />
-            <button onClick={()=>{play("nav"); setPantalla("registro"); setTipoRegistro("alumno");}} style={{ ...btnS("none",c.info_tx), border:`1px solid ${c.info_tx}` }}>Crear una cuenta nueva</button>
+            <button onClick={()=>{play("nav"); setPantalla("registro"); setErrMsg(""); setModoProfesorOculto(false);}} style={{ ...btnS("none",c.info_tx), border:`1px solid ${c.info_tx}` }}>Crear una cuenta nueva</button>
           </div>
         )}
 
@@ -649,33 +668,31 @@ export default function App() {
 
         {pantalla === "registro" && (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            <h2 style={{ fontSize:15, fontWeight:500, color:c.text }}>Crear nueva cuenta</h2>
             
-            {/* Pestañas para elegir tipo de cuenta */}
-            <div style={{ display:"flex", background:c.bg2, borderRadius:8, padding:3 }}>
-              <button onClick={() => { play("toggle"); setTipoRegistro("alumno"); }} style={{ flex:1, padding:"6px", border:"none", borderRadius:6, fontSize:12, cursor:"pointer", background:tipoRegistro==="alumno"?c.bg: "transparent", color:tipoRegistro==="alumno"?c.text:c.text2, fontWeight:tipoRegistro==="alumno"?500:400 }}>Alumno</button>
-              <button onClick={() => { play("toggle"); setTipoRegistro("profesor"); }} style={{ flex:1, padding:"6px", border:"none", borderRadius:6, fontSize:12, cursor:"pointer", background:tipoRegistro==="profesor"?c.bg: "transparent", color:tipoRegistro==="profesor"?c.text:c.text2, fontWeight:tipoRegistro==="profesor"?500:400 }}>Profesor</button>
-            </div>
-
-            {tipoRegistro === "alumno" ? (
+            {!modoProfesorOculto ? (
+              // VISTA GENERAL: Solo muestra alumnos
               <>
+                <h2 style={{ fontSize:15, fontWeight:500, color:c.text }}>Crear cuenta de Alumno</h2>
                 <p style={{ fontSize:12, color:c.text2 }}>Usa un pseudónimo o alias si prefieres resguardar al máximo tu identidad.</p>
                 <input style={inp} placeholder="Crea tu Alias (ej: HalcónBlanco)" value={nuevoUser} onChange={e=>setNuevoUser(e.target.value)} />
-                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={nuevaPass} onChange={e=>setNuevaPass(e.target.value)} />
+                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={nuevaPass} onChange={e=>setNuevaPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&registrarAlumno()} />
                 {errMsg && <p style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</p>}
                 <button onClick={registrarAlumno} style={btnS(c.blue,"#fff")}>Registrar y Entrar</button>
               </>
             ) : (
+              // VISTA SECRETA DESBLOQUEADA: Formulario de profesor
               <>
+                <h2 style={{ fontSize:15, fontWeight:500, color:c.greenTx }}>⚡ Registro Docente Activado</h2>
+                <p style={{ fontSize:12, color:c.text2 }}>Has ingresado a la interfaz de administración escolar interna.</p>
                 <input style={inp} placeholder="Nombre completo del Profesor" value={regProfNombre} onChange={e=>setRegProfNombre(e.target.value)} />
-                <input style={inp} placeholder="Cargo (ej: Tutor 4to de Secundaria, Psicólogo)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} />
-                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} />
+                <input style={inp} placeholder="Cargo (ej: Tutor 4to, Psicólogo)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} />
+                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&registrarProfesor()} />
                 {errMsg && <p style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</p>}
-                <button onClick={registrarProfesor} style={btnS(c.blue,"#fff")}>Registrar Profesor y Entrar</button>
+                <button onClick={registrarProfesor} style={btnS(c.greenTx, "#fff")}>Registrar Profesor e Ingresar</button>
               </>
             )}
 
-            <button onClick={()=>{play("back"); setPantalla("inicio"); setErrMsg("");}} style={{ ...btnS("none",c.text2), fontSize:12 }}>← Volver</button>
+            <button onClick={()=>{play("back"); setPantalla("inicio"); setErrMsg(""); setNuevoUser(""); setNuevaPass(""); setModoProfesorOculto(false);}} style={{ ...btnS("none",c.text2), fontSize:12 }}>← Volver</button>
           </div>
         )}
       </div>
@@ -689,7 +706,7 @@ export default function App() {
         <AppHeader titulo="Configuración del Sistema" onBack={()=>setAjustes(false)} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
-            <div style={{ fontSize:14, fontWeight:500, color:c.text, marginBottom:4 }}>Seguridad y Criptografía</div>
+            <div style={{ fontSize:14, fontWeight:500, color:c.text, marginBottom:4 }}>Security & Cryptography</div>
             <div style={{ fontSize:12, color:c.text2, lineHeight:1.5, background:c.bg2, padding:10, borderRadius:8 }}>
               Toda la base de datos local está encriptada bajo el estándar <b>AES-GCM (256-bit)</b>. Las credenciales se procesan exclusivamente con funciones hash asíncronas <b>SHA-256</b>.
             </div>
