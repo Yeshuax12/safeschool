@@ -94,20 +94,6 @@ async function cargar(key) {
   try { const raw = localStorage.getItem(key); return raw ? await descifrar(raw) : null; } catch { return null; }
 }
 
-// ── Log de accesos ──
-async function registrarAcceso(evento, usuario) {
-  try {
-    const logs = (await cargar(KEYS.logs)) || [];
-    logs.unshift({
-      evento, usuario,
-      fecha: new Date().toLocaleDateString("es-PE"),
-      hora:  new Date().toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit", second:"2-digit" }),
-      device: navigator.userAgent.includes("Mobile") ? "📱 Móvil" : "💻 Escritorio",
-    });
-    await guardar(KEYS.logs, logs.slice(0, 100));
-  } catch {}
-}
-
 // ══════════════════════════════════════════════
 // 🔊 SONIDOS
 // ══════════════════════════════════════════════
@@ -179,7 +165,7 @@ function useSounds() {
 }
 
 // ══════════════════════════════════════════════
-// 📋 DATOS
+// 📋 DATOS E INSTITUCIONALES
 // ══════════════════════════════════════════════
 const CATEGORIAS   = ["Bullying / acoso","Violencia física","Consumo de sustancias","Otra cosa"];
 const CAT_DIR      = ["Conducta docente","Infraestructura","Administrativo","Otro"];
@@ -199,7 +185,7 @@ const PROFESORES_HASH = [
 ];
 const NOMBRES_RESERVADOS = PROFESORES_HASH.map(p => p.usuario.toLowerCase());
 
-// 🗝️ Clave institucional secreta para el registro docente
+// 🔑 Clave secreta administrativa para admitir nuevos profesores
 const CLAVE_REGISTRO_PROFESOR = "SafeSchoolAdmin2025!"; 
 
 // ══════════════════════════════════════════════
@@ -258,7 +244,7 @@ function FiltroBar({ opciones, valor, onChange, c, play }) {
   return (
     <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
       {["Todos",...opciones].map(f => (
-        <button key={f} onClick={()=>{ play("toggle"); onChange(f); }} style={{ padding:"5px 14px", borderRadius99:99, fontSize:13, cursor:"pointer", background:valor===f?c.info_bg:c.bg2, color:valor===f?c.info_tx:c.text2, border:valor===f?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{f}</button>
+        <button key={f} onClick={()=>{ play("toggle"); onChange(f); }} style={{ padding:"5px 14px", borderRadius:99, fontSize:13, cursor:"pointer", background:valor===f?c.info_bg:c.bg2, color:valor===f?c.info_tx:c.text2, border:valor===f?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{f}</button>
       ))}
     </div>
   );
@@ -292,7 +278,7 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ss_theme", dark?"dark":"light"); } catch {} document.body.style.background = dark?"#0f0f0f":"#fff"; }, [dark]);
   const c = getColors(dark);
 
-  // ── Estados de la aplicación cargados desde localStorage cifrado ──
+  // ── Estados cargados desde localStorage cifrado ──
   const [appReady,      setAppReady]      = useState(false);
   const [sesion,        setSesion]        = useState(null);
   const [pantalla,      setPantalla]      = useState("inicio");
@@ -310,7 +296,7 @@ export default function App() {
   const [pinError,      setPinError]      = useState("");
   const [pinVerificado, setPinVerificado] = useState(false);
 
-  // ── Estados para el Registro Dinámico de Profesores ──
+  // ── Nuevos estados para Registro Dinámico de Profesores ──
   const [profesoresBD,  setProfesoresBD]  = useState([]);
   const [regProfNombre, setRegProfNombre] = useState("");
   const [regProfUser,   setRegProfUser]   = useState("");
@@ -318,7 +304,7 @@ export default function App() {
   const [regProfCargo,  setRegProfCargo]  = useState("");
   const [regProfToken,  setRegProfToken]  = useState("");
 
-  // ── Cargar todo al inicio ──
+  // ── Cargar todo al iniciar la app ──
   useEffect(() => {
     (async () => {
       const [s, a, p, r, d, l, nid, naid, cu] = await Promise.all([
@@ -354,7 +340,7 @@ export default function App() {
   const [loginUser, setLoginUser] = useState(""); const [loginPass, setLoginPass] = useState("");
   const [profUser,  setProfUser]  = useState(""); const [profPass,  setProfPass]  = useState("");
   const [errMsg,    setErrMsg]    = useState(""); const [errProf,   setErrProf]   = useState("");
-  const [vista,     setVista]     = useState("lista"); // Controlará los colapsables en el login
+  const [vista,     setVista]     = useState("lista"); 
   const [selId,     setSelId]     = useState(null);
   const [filtro,    setFiltro]    = useState("Todos");
   const [filtroD,   setFiltroD]   = useState("Todos");
@@ -445,7 +431,7 @@ export default function App() {
     setNuevoUser(""); setNuevaPass(""); setErrMsg("");
   }
 
-  // ── Función para registrar profesores de forma segura con Clave Administrativa ──
+  // ── Función para registrar profesores con Clave Administrativa ──
   async function registrarProfesor() {
     const nombre = regProfNombre.trim();
     const usuario = regProfUser.trim();
@@ -456,14 +442,12 @@ export default function App() {
     if (!nombre || !usuario || !pass || !cargo || !token) {
       play("error"); setErrProf("Completa todos los campos obligatorios."); return;
     }
-
     if (token !== CLAVE_REGISTRO_PROFESOR) {
       play("error"); 
       setErrProf("Código de invitación administrativo incorrecto. Acceso denegado.");
-      addLog("Intento fallido de registro docente", usuario);
+      addLog("Intento de registro docente fallido", usuario);
       return;
     }
-
     if (pass.length < 8) {
       play("error"); setErrProf("La contraseña docente debe tener al menos 8 caracteres."); return;
     }
@@ -483,7 +467,6 @@ export default function App() {
     addLog("Nuevo profesor registrado", nombre);
 
     await login({ tipo: "profesor", nombre, cargo });
-
     setRegProfNombre(""); setRegProfUser(""); setRegProfPass(""); setRegProfCargo(""); setRegProfToken(""); setErrProf("");
   }
 
@@ -620,7 +603,7 @@ export default function App() {
           ? <div><label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>Estado del caso</label>
               <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                 {ESTADOS.map(est => { const col=ESTADO_COLOR[est]; const a=r.estado===est; return (
-                  <button key={est} onClick={()=>cambiarEstado(r.id,est,esDir)} style={{ padding:"6px 14px", borderRadius99:99, fontSize:13, cursor:"pointer", background:a?(dark?col.bgD:col.bg):c.bg2, color:a?(dark?col.textD:col.text):c.text2, border:a?`1.5px solid ${col.dot}`:`0.5px solid ${c.border}`, fontWeight:a?500:400 }}>{est}</button>
+                  <button key={est} onClick={()=>cambiarEstado(r.id,est,esDir)} style={{ padding:"6px 14px", borderRadius:99, fontSize:13, cursor:"pointer", background:a?(dark?col.bgD:col.bg):c.bg2, color:a?(dark?col.textD:col.text):c.text2, border:a?`1.5px solid ${col.dot}`:`0.5px solid ${c.border}`, fontWeight:a?500:400 }}>{est}</button>
                 ); })}
               </div>
             </div>
@@ -682,7 +665,7 @@ export default function App() {
   }
 
   // ══════════════════════════════════════════════
-  // 🖼️ PANTALLA DE INICIO (DISEÑO COLAPSABLE ADAPTADO)
+  // 🖼️ PANTALLA DE INICIO (PROCESO ORIGINAL PRESERVADO)
   // ══════════════════════════════════════════════
   if (pantalla === "inicio") {
     return (
@@ -749,6 +732,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ÚNICO AGREGADO FORMULARIO INTERNO: Registro administrativo para nuevos docentes */}
                 <div style={{ background: c.bg2, padding: 12, borderRadius: 10, marginTop: 4 }}>
                   <h4 style={{ fontSize: 13, margin: "0 0 4px 0", color: c.text }}>¿Eres nuevo docente?</h4>
                   <p style={{ fontSize: 11, color: c.text2, margin: "0 0 8px 0" }}>Crea tu cuenta usando el código de invitación de la directiva</p>
