@@ -47,17 +47,7 @@ async function descifrar(cifrado) {
 }
 
 // ── Persistencia cifrada ──
-const KEYS = { 
-  alumnos: "ss_alumnos_v2", 
-  profesores: "ss_profesores_v2", 
-  reportes: "ss_reportes_v2", 
-  directiva: "ss_directiva_v2", 
-  sesion: "ss_sesion_v2", 
-  logs: "ss_logs_v2", 
-  nextId: "ss_nextid_v2", 
-  nextAlumnoId: "ss_nextaid_v2", 
-  cuentas: "ss_cuentas_v2" 
-};
+const KEYS = { alumnos:"ss_alumnos_v2", profesores:"ss_profesores_v2", reportes:"ss_reportes_v2", directiva:"ss_directiva_v2", sesion:"ss_sesion_v2", logs:"ss_logs_v2", nextId:"ss_nextid_v2", nextAlumnoId:"ss_nextaid_v2", cuentas:"ss_cuentas_v2" };
 
 // ── ID único de dispositivo ──
 function getDeviceId() {
@@ -92,6 +82,20 @@ async function guardar(key, data) {
 }
 async function cargar(key) {
   try { const raw = localStorage.getItem(key); return raw ? await descifrar(raw) : null; } catch { return null; }
+}
+
+// ── Log de accesos ──
+async function registrarAcceso(evento, usuario) {
+  try {
+    const logs = (await cargar(KEYS.logs)) || [];
+    logs.unshift({
+      evento, usuario,
+      fecha: new Date().toLocaleDateString("es-PE"),
+      hora:  new Date().toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit", second:"2-digit" }),
+      device: navigator.userAgent.includes("Mobile") ? "📱 Móvil" : "💻 Escritorio",
+    });
+    await guardar(KEYS.logs, logs.slice(0, 100)); // máx 100 registros
+  } catch {}
 }
 
 // ══════════════════════════════════════════════
@@ -165,7 +169,7 @@ function useSounds() {
 }
 
 // ══════════════════════════════════════════════
-// 📋 DATOS E INSTITUCIONALES
+// 📋 DATOS
 // ══════════════════════════════════════════════
 const CATEGORIAS   = ["Bullying / acoso","Violencia física","Consumo de sustancias","Otra cosa"];
 const CAT_DIR      = ["Conducta docente","Infraestructura","Administrativo","Otro"];
@@ -180,13 +184,11 @@ const CAT_ICON = {
   "Conducta docente":"👔","Infraestructura":"🏫","Administrativo":"📋","Otro":"📌",
 };
 
+// Profesor con contraseña en hash (se calcula al primer login)
 const PROFESORES_HASH = [
   { usuario:"Jesús Adrian Mondragón Chú", passHash:null, passPlain:"K@rtdsPomele37", nombre:"Jesús Adrián Mondragón Chú-Alcalde", cargo:"Director / Alcalde" },
 ];
 const NOMBRES_RESERVADOS = PROFESORES_HASH.map(p => p.usuario.toLowerCase());
-
-// 🔑 Clave secreta administrativa para admitir nuevos profesores
-const CLAVE_REGISTRO_PROFESOR = "SafeSchoolAdmin2025!"; 
 
 // ══════════════════════════════════════════════
 // 🎨 HELPERS UI
@@ -278,43 +280,34 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ss_theme", dark?"dark":"light"); } catch {} document.body.style.background = dark?"#0f0f0f":"#fff"; }, [dark]);
   const c = getColors(dark);
 
-  // ── Estados cargados desde localStorage cifrado ──
+  // ── Estado inicial cargado desde localStorage cifrado ──
   const [appReady,      setAppReady]      = useState(false);
   const [sesion,        setSesion]        = useState(null);
   const [pantalla,      setPantalla]      = useState("inicio");
   const [ajustes,       setAjustes]       = useState(false);
   const [alumnosBD,     setAlumnosBD]     = useState([]);
+  const [profesoresBD,  setProfesoresBD]  = useState([]); // 👈 NUEVO: Estado base de datos de profesores creados
   const [reportes,      setReportes]      = useState([]);
   const [repDirectiva,  setRepDirectiva]  = useState([]);
   const [logs,          setLogs]          = useState([]);
   const [nextId,        setNextId]        = useState(1);
   const [nextAlumnoId,  setNextAlumnoId]  = useState(1);
-  const [vistaLogs,      setVistaLogs]     = useState(false);
-  const [cuentas,        setCuentas]       = useState([]);
+  const [vistaLogs,     setVistaLogs]     = useState(false);
+  const [cuentas,       setCuentas]       = useState([]);
   const [vistaCuentas,  setVistaCuentas]  = useState(false);
   const [pinCuentas,    setPinCuentas]    = useState("");
   const [pinError,      setPinError]      = useState("");
   const [pinVerificado, setPinVerificado] = useState(false);
 
-  // ── Nuevos estados para Registro Dinámico de Profesores ──
-  const [profesoresBD,  setProfesoresBD]  = useState([]);
-  const [regProfNombre, setRegProfNombre] = useState("");
-  const [regProfUser,   setRegProfUser]   = useState("");
-  const [regProfPass,   setRegProfPass]   = useState("");
-  const [regProfCargo,  setRegProfCargo]  = useState("");
-  const [regProfToken,  setRegProfToken]  = useState("");
-
-  // ── Cargar todo al iniciar la app ──
+  // ── Cargar todo al inicio ──
   useEffect(() => {
     (async () => {
       const [s, a, p, r, d, l, nid, naid, cu] = await Promise.all([
-        cargar(KEYS.sesion), cargar(KEYS.alumnos), 
-        cargar(KEYS.profesores),
-        cargar(KEYS.reportes), cargar(KEYS.directiva), 
-        cargar(KEYS.logs), cargar(KEYS.nextId), cargar(KEYS.nextAlumnoId), cargar(KEYS.cuentas),
+        cargar(KEYS.sesion), cargar(KEYS.alumnos), cargar(KEYS.profesores), cargar(KEYS.reportes),
+        cargar(KEYS.directiva), cargar(KEYS.logs), cargar(KEYS.nextId), cargar(KEYS.nextAlumnoId), cargar(KEYS.cuentas),
       ]);
       if (a) setAlumnosBD(a);
-      if (p) setProfesoresBD(p);
+      if (p) setProfesoresBD(p); // 👈 NUEVO: Cargar profesores
       if (r) setReportes(r);
       if (d) setRepDirectiva(d);
       if (l) setLogs(l);
@@ -326,9 +319,9 @@ export default function App() {
     })();
   }, []);
 
-  // ── Guardado automático reactivo ──
+  // ── Persistir datos cada vez que cambian ──
   useEffect(() => { if (appReady) guardar(KEYS.alumnos,    alumnosBD);    }, [alumnosBD,    appReady]);
-  useEffect(() => { if (appReady) guardar(KEYS.profesores, profesoresBD); }, [profesoresBD, appReady]);
+  useEffect(() => { if (appReady) guardar(KEYS.profesores, profesoresBD); }, [profesoresBD, appReady]); // 👈 NUEVO: Guardar profesores
   useEffect(() => { if (appReady) guardar(KEYS.reportes,   reportes);     }, [reportes,     appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.directiva,  repDirectiva); }, [repDirectiva, appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.logs,       logs);         }, [logs,         appReady]);
@@ -340,7 +333,7 @@ export default function App() {
   const [loginUser, setLoginUser] = useState(""); const [loginPass, setLoginPass] = useState("");
   const [profUser,  setProfUser]  = useState(""); const [profPass,  setProfPass]  = useState("");
   const [errMsg,    setErrMsg]    = useState(""); const [errProf,   setErrProf]   = useState("");
-  const [vista,     setVista]     = useState("lista"); 
+  const [vista,     setVista]     = useState("lista");
   const [selId,     setSelId]     = useState(null);
   const [filtro,    setFiltro]    = useState("Todos");
   const [filtroD,   setFiltroD]   = useState("Todos");
@@ -369,6 +362,7 @@ export default function App() {
   const wrap  = { padding:"1.5rem 1rem", background:c.bg, minHeight:"100vh" };
   const authWrap = { padding:"2rem 1.2rem", maxWidth:380, margin:"0 auto", background:c.bg, minHeight:"100vh" };
 
+  // ── Helpers internos ──
   function addLog(evento, usuario) {
     const entry = {
       evento, usuario,
@@ -399,7 +393,6 @@ export default function App() {
     setErrMsg(""); setErrProf(""); setLoginUser(""); setLoginPass("");
     setProfUser(""); setProfPass(""); setEnviado(false); setEnviadoDir(false);
     setChatMsg(""); setNotaInt(""); setPinCuentas(""); setPinVerificado(false); setPinError("");
-    setRegProfNombre(""); setRegProfUser(""); setRegProfPass(""); setRegProfCargo(""); setRegProfToken("");
     setPantalla("inicio");
     setSesion(null);
   }
@@ -431,43 +424,20 @@ export default function App() {
     setNuevoUser(""); setNuevaPass(""); setErrMsg("");
   }
 
-  // ── Función para registrar profesores con Clave Administrativa ──
-  async function registrarProfesor() {
-    const nombre = regProfNombre.trim();
-    const usuario = regProfUser.trim();
-    const pass = regProfPass.trim();
-    const cargo = regProfCargo.trim();
-    const token = regProfToken.trim();
-
-    if (!nombre || !usuario || !pass || !cargo || !token) {
-      play("error"); setErrProf("Completa todos los campos obligatorios."); return;
-    }
-    if (token !== CLAVE_REGISTRO_PROFESOR) {
-      play("error"); 
-      setErrProf("Código de invitación administrativo incorrecto. Acceso denegado.");
-      addLog("Intento de registro docente fallido", usuario);
-      return;
-    }
-    if (pass.length < 8) {
-      play("error"); setErrProf("La contraseña docente debe tener al menos 8 caracteres."); return;
-    }
-
-    const existeEnEstaticos = PROFESORES_HASH.find(p => p.usuario.toLowerCase() === usuario.toLowerCase());
-    const existeEnDinamicos = profesoresBD.find(p => p.usuario.toLowerCase() === usuario.toLowerCase());
-    const existeEnAlumnos = alumnosBD.find(a => a.usuario.toLowerCase() === usuario.toLowerCase());
-
-    if (existeEnEstaticos || existeEnDinamicos || existeEnAlumnos) {
-      play("error"); setErrProf("Este nombre de usuario ya está en uso."); return;
-    }
-
-    const passHash = await sha256(pass);
-    const nuevoProfesor = { usuario, passHash, nombre, cargo };
-
-    setProfesoresBD(prev => [...prev, nuevoProfesor]);
-    addLog("Nuevo profesor registrado", nombre);
-
-    await login({ tipo: "profesor", nombre, cargo });
-    setRegProfNombre(""); setRegProfUser(""); setRegProfPass(""); setRegProfCargo(""); setRegProfToken(""); setErrProf("");
+  // ── 👇 NUEVA FUNCIÓN: Registrar Cuenta de Profesor ──
+  async function registrarProfesor(nombreCompleto, cargo, pass) {
+    const u = nombreCompleto.trim();
+    const pCargo = cargo.trim() || "Profesor";
+    if (!u || !pass.trim()) { play("error"); setErrProf("Completa todos los campos."); return; }
+    if (pass.trim().length < 6) { play("error"); setErrProf("La contraseña debe tener al menos 6 caracteres."); return; }
+    if (profesoresBD.find(p => p.usuario.toLowerCase() === u.toLowerCase())) { play("error"); setErrProf("Este profesor ya está registrado."); return; }
+    
+    const passHash = await sha256(pass.trim());
+    const nuevoProf = { usuario: u, passHash, nombre: u, cargo: pCargo };
+    
+    setProfesoresBD(prev => [...prev, nuevoProf]);
+    addLog("Registro de profesor", u);
+    await login({ tipo: "profesor", nombre: nuevoProf.nombre, cargo: nuevoProf.cargo });
   }
 
   async function loginAlumno() {
@@ -479,30 +449,26 @@ export default function App() {
   }
 
   async function loginProfesor() {
-    const user = profUser.trim();
-    const pass = profPass.trim();
-    const passHash = await sha256(pass);
+    const usr = profUser.trim();
+    const passHash = await sha256(profPass.trim());
 
-    let profEncontrado = profesoresBD.find(p => p.usuario.toLowerCase() === user.toLowerCase() && p.passHash === passHash);
-
-    if (!profEncontrado) {
-      const profEstatico = PROFESORES_HASH.find(p => p.usuario.toLowerCase() === user.toLowerCase());
+    // 👈 ACTUALIZADO: Primero busca en la base de datos de nuevos profesores registrados
+    let prof = profesoresBD.find(p => p.usuario.toLowerCase() === usr.toLowerCase() && p.passHash === passHash);
+    
+    // Si no está ahí, busca en la lista estática original de PROFESORES_HASH
+    if (!prof) {
+      const profEstatico = PROFESORES_HASH.find(p => p.usuario===usr);
       if (profEstatico) {
         const hashEsperado = await sha256(profEstatico.passPlain);
         if (passHash === hashEsperado) {
-          profEncontrado = { nombre: profEstatico.nombre, cargo: profEstatico.cargo };
+          prof = profEstatico;
         }
       }
     }
 
-    if (!profEncontrado) { 
-      play("error"); 
-      setErrProf("Usuario o contraseña incorrectos."); 
-      addLog("Login fallido (profesor)", user); 
-      return; 
-    }
-
-    await login({ tipo:"profesor", nombre:profEncontrado.nombre, cargo:profEncontrado.cargo });
+    if (!prof) { play("error"); setErrProf("Usuario o contraseña incorrectos."); addLog("Login fallido (profesor)", usr); return; }
+    
+    await login({ tipo:"profesor", nombre:prof.nombre, cargo:prof.cargo });
     setProfUser(""); setProfPass(""); setErrProf("");
   }
 
@@ -572,6 +538,9 @@ export default function App() {
     setConfirmDel(null); setSelId(null); setVista(esDir?"directiva":"lista");
   }
 
+  // ══════════════════════════════════════════
+  // 🖼️ RENDERS
+  // ══════════════════════════════════════════
   function renderDetalle(r, esDir=false) {
     return (
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -631,345 +600,28 @@ export default function App() {
 
         {esProfesor && (
           <div>
-            <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>🔒 Notas internas (solo profesores)</label>
-            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
+            <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>📝 Notas internas (Solo profesores)</label>
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <input style={{ ...inp, flex:1 }} value={notaInt} onChange={e=>setNotaInt(e.target.value)} placeholder="Agregar nota privada sobre el caso..." onKeyDown={e=>e.key==="Enter"&&agregarNota(r.id,esDir)} />
+              <button onClick={()=>agregarNota(r.id,esDir)} style={{ padding:"0 16px", borderRadius:10, border:"none", background:c.blue, cursor:"pointer", fontSize:13, color:"#fff" }}>+</button>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               {(r.notas_internas||[]).map((n,i) => (
-                <div key={i} style={{ background:c.bg2, padding:"8px 12px", borderRadius:8, fontSize:13, color:c.text, borderLeft:`3px solid ${c.border}` }}>
-                  <span style={{ fontSize:11, color:c.text3, display:"block", marginBottom:2 }}>{n.fecha}</span>
+                <div key={i} style={{ background:c.warn_bg, border:`0.5px solid ${dark?"#4a2500":"#ffe0b2"}`, padding:"10px 12px", borderRadius:10, fontSize:13, color:c.warn_tx }}>
+                  <span style={{ fontSize:11, opacity:0.7, display:"block", marginBottom:2 }}>{n.fecha}</span>
                   {n.texto}
                 </div>
               ))}
             </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <input style={{ ...inp, flex:1 }} value={notaInt} onChange={e=>setNotaInt(e.target.value)} placeholder="Agregar nota interna..." />
-              <button onClick={()=>agregarNota(r.id,esDir)} style={{ padding:"0 14px", borderRadius:10, border:"none", background:c.bg2, color:c.text, cursor:"pointer", fontSize:13 }}>Guardar</button>
-            </div>
-          </div>
-        )}
-
-        {esProfesor && (
-          <div style={{ marginTop:8, borderTop:`0.5px solid ${c.border2}`, paddingTop:14 }}>
-            {confirmDel === r.id ? (
-              <div style={{ display:"flex", alignItems:"center", gap:10, background:c.warn_bg, padding:10, borderRadius:10 }}>
-                <span style={{ fontSize:13, color:c.warn_tx, flex:1 }}>¿Seguro que deseas eliminar permanentemente este caso?</span>
-                <button onClick={()=>eliminarReporte(r.id,esDir)} style={{ background:"#C0392B", color:"#fff", border:"none", padding:"6px 12px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Sí, eliminar</button>
-                <button onClick={()=>setConfirmDel(null)} style={{ background:"none", border:`0.5px solid ${c.border}`, color:c.text2, padding:"6px 12px", borderRadius:6, fontSize:12, cursor:"pointer" }}>No</button>
-              </div>
-            ) : (
-              <button onClick={()=>setConfirmDel(r.id)} style={{ background:"none", border:"none", color:"#C0392B", fontSize:13, cursor:"pointer", padding:0 }}>⚠️ Eliminar reporte del sistema</button>
-            )}
           </div>
         )}
       </div>
     );
   }
 
-  // ══════════════════════════════════════════════
-  // 🖼️ PANTALLA DE INICIO (PROCESO ORIGINAL PRESERVADO)
-  // ══════════════════════════════════════════════
-  if (pantalla === "inicio") {
-    return (
-      <div style={authWrap}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <span style={{ fontSize: 32 }}>🏫</span>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: c.blue, margin: "8px 0 2px 0" }}>SafeSchool</h1>
-          <p style={{ fontSize: 13, color: c.text2, margin: 0 }}>Plataforma segura y confidencial de reportes</p>
-          <div style={{ marginTop: 8, display: "inline-block", background: c.info_bg, color: c.info_tx, fontSize: 11, padding: "4px 10px", borderRadius: 99 }}>
-            🔐 Datos cifrados con AES-GCM · Contraseñas con SHA-256
-          </div>
-        </div>
-
-        {/* NOTIFICACIÓN DE ERRORES */}
-        {errMsg && <div style={{ background: "#FADBD8", color: "#78281F", padding: 10, borderRadius: 8, fontSize: 13, marginBottom: 14, textAlign: "center" }}>{errMsg}</div>}
-        {errProf && <div style={{ background: "#FFF3E0", color: "#7A4100", padding: 10, borderRadius: 8, fontSize: 13, marginBottom: 14, textAlign: "center" }}>{errProf}</div>}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          
-          {/* 👤 SECCIÓN SOY ALUMNO */}
-          <div style={{ background: c.bg3, border: `0.5px solid ${c.border2}`, borderRadius: 14, padding: 16 }}>
-            <div style={{ cursor: "pointer" }} onClick={() => { play("toggle"); setVista(vista === "form_alumno" ? "lista" : "form_alumno"); }}>
-              <h3 style={{ fontSize: 15, margin: 0, color: c.text, fontWeight: 600 }}>Soy alumno</h3>
-              <p style={{ fontSize: 12, color: c.text2, margin: "4px 0 0 0" }}>Inicia sesión o crea tu cuenta de forma anónima</p>
-            </div>
-
-            {vista === "form_alumno" && (
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14, borderTop: `0.5px solid ${c.border2}`, paddingTop: 14 }}>
-                <div style={{ background: c.bg2, padding: 12, borderRadius: 10 }}>
-                  <h4 style={{ fontSize: 13, margin: "0 0 8px 0", color: c.text }}>Crear nueva cuenta anónima</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input style={inp} placeholder="Crea un alias (Ej: HalcónAzul)" value={nuevoUser} onChange={e => setNuevoUser(e.target.value)} />
-                    <input style={inp} type="password" placeholder="Crea una contraseña pin" value={nuevaPass} onChange={e => setNuevaPass(e.target.value)} />
-                    <button onClick={registrarAlumno} style={btnS(c.blue, "#fff")}>Registrarme e Ingresar 🔒</button>
-                  </div>
-                </div>
-                <div>
-                  <h4 style={{ fontSize: 13, margin: "0 0 8px 0", color: c.text2 }}>Ya tengo una cuenta</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input style={inp} placeholder="Tu alias anónimo" value={loginUser} onChange={e => setLoginUser(e.target.value)} />
-                    <input style={inp} type="password" placeholder="Tu contraseña" value={loginPass} onChange={e => setLoginPass(e.target.value)} />
-                    <button onClick={loginAlumno} style={btnS(c.bg2, c.text)}>Ingresar al sistema</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 👔 SECCIÓN SOY PROFESOR / ADMIN */}
-          <div style={{ background: c.bg3, border: `0.5px solid ${c.border2}`, borderRadius: 14, padding: 16 }}>
-            <div style={{ cursor: "pointer" }} onClick={() => { play("toggle"); setVista(vista === "form_profesor" ? "lista" : "form_profesor"); }}>
-              <h3 style={{ fontSize: 15, margin: 0, color: c.text, fontWeight: 600 }}>Soy profesor / admin</h3>
-              <p style={{ fontSize: 12, color: c.text2, margin: "4px 0 0 0" }}>Accede con tus credenciales o registra tu cuenta</p>
-            </div>
-
-            {vista === "form_profesor" && (
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14, borderTop: `0.5px solid ${c.border2}`, paddingTop: 14 }}>
-                <div>
-                  <h4 style={{ fontSize: 13, margin: "0 0 8px 0", color: c.text }}>Iniciar Sesión Administrativa</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input style={inp} placeholder="Usuario docente (Nombre Completo)" value={profUser} onChange={e => setProfUser(e.target.value)} />
-                    <input style={inp} type="password" placeholder="Contraseña institucional" value={profPass} onChange={e => setProfPass(e.target.value)} />
-                    <button onClick={loginProfesor} style={btnS("#1A5276", "#fff")}>Acceder al Panel</button>
-                  </div>
-                </div>
-
-                {/* ÚNICO AGREGADO FORMULARIO INTERNO: Registro administrativo para nuevos docentes */}
-                <div style={{ background: c.bg2, padding: 12, borderRadius: 10, marginTop: 4 }}>
-                  <h4 style={{ fontSize: 13, margin: "0 0 4px 0", color: c.text }}>¿Eres nuevo docente?</h4>
-                  <p style={{ fontSize: 11, color: c.text2, margin: "0 0 8px 0" }}>Crea tu cuenta usando el código de invitación de la directiva</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input style={inp} placeholder="Nombre y Apellidos" value={regProfNombre} onChange={e => setRegProfNombre(e.target.value)} />
-                    <input style={inp} placeholder="Usuario de ingreso nuevo" value={regProfUser} onChange={e => setRegProfUser(e.target.value)} />
-                    <input style={inp} type="password" placeholder="Contraseña (mín. 8 caracteres)" value={regProfPass} onChange={e => setRegProfPass(e.target.value)} />
-                    <input style={inp} placeholder="Cargo (Ej: Auxiliar, Tutor de 3ero)" value={regProfCargo} onChange={e => setRegProfCargo(e.target.value)} />
-                    <input style={{ ...inp, border: `1px dashed #1A5276` }} type="password" placeholder="🔑 Código de Registro Administrativo" value={regProfToken} onChange={e => setRegProfToken(e.target.value)} />
-                    <button onClick={registrarProfesor} style={btnS("#27500A", "#fff")}>Validar y Crear Cuenta</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
-    );
-  }
-
-  // ══════════════════════════════════════════════
-  // 🏢 VISTA INTERNA DEL APLICATIVO (LOGUEADO)
-  // ══════════════════════════════════════════════
   return (
     <div style={wrap}>
-      <div style={{ maxWidth:600, margin:"0 auto" }}>
-        
-        {ajustes && (
-          <div style={{ background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:16, padding:20, marginBottom:20 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              <h3 style={{ margin:0, color:c.text, fontSize:16 }}>Configuración y Herramientas</h3>
-              <button onClick={()=>setAjustes(false)} style={{ background:"none", border:"none", fontSize:14, color:c.text2, cursor:"pointer" }}>Cerrar ✕</button>
-            </div>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              {esProfesor && (
-                <>
-                  <button onClick={()=>{ play("nav"); setVistaLogs(v=>!v); setVistaCuentas(false); }} style={btnS(c.bg2,c.text)}>{vistaLogs?" ocultar Auditoría":"📊 Ver Logs de Auditoría"}</button>
-                  <button onClick={()=>{ play("nav"); setVistaCuentas(v=>!v); setVistaLogs(false); }} style={btnS(c.bg2,c.text)}>{vistaCuentas?" ocultar Control de Cuentas":"👥 Ver Registro de Dispositivos/Cuentas"}</button>
-                  <button onClick={()=>exportarTXT(reportes,repDirectiva)} style={btnS("#1A5276","#fff")}>💾 Descargar Respaldo en Texto (.TXT)</button>
-                </>
-              )}
-              <button onClick={cerrarSesion} style={btnS("#922B21","#fff")}>Cerrar Sesión Activa</button>
-            </div>
-
-            {vistaLogs && esProfesor && (
-              <div style={{ marginTop:16, borderTop:`0.5px solid ${c.border2}`, paddingTop:14 }}>
-                <h4 style={{ margin:"0 0 10px 0", fontSize:13, color:c.text2 }}>Historial de Eventos del Sistema (Últimos 100)</h4>
-                <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:200, overflowY:"auto", background:c.bg2, padding:8, borderRadius:10 }}>
-                  {logs.map((l,i)=>(
-                    <div key={i} style={{ fontSize:11, color:c.text, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:4 }}>
-                      [{l.fecha} {l.hora}] <b>{l.usuario}</b>: {l.evento} <span style={{color:c.text3}}>({l.device})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {vistaCuentas && esProfesor && (
-              <div style={{ marginTop:16, borderTop:`0.5px solid ${c.border2}`, paddingTop:14 }}>
-                <h4 style={{ margin:"0 0 10px 0", fontSize:13, color:c.text2 }}>Dispositivos Registrados por Alumnos</h4>
-                {!pinVerificado ? (
-                  <div style={{ display:"flex", gap:8 }}>
-                    <input style={inp} type="password" placeholder="Ingresa PIN de cuentas" value={pinCuentas} onChange={e=>setPinCuentas(e.target.value)} />
-                    <button onClick={()=>{ if(pinCuentas==="2025") setPinVerificado(true); else setPinError("PIN Incorrecto"); }} style={{ padding:"0 14px", borderRadius:10, border:"none", background:c.blue, color:"#fff" }}>Verificar</button>
-                  </div>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:220, overflowY:"auto" }}>
-                    {cuentas.map((cu,i)=>(
-                      <div key={i} style={{ background:c.bg2, padding:8, borderRadius:8, fontSize:12, color:c.text }}>
-                        <b>Usuario:</b> {cu.usuario} <br/>
-                        <b>Fecha/Hora:</b> {cu.fecha} a las {cu.hora} <br/>
-                        <b>Entorno:</b> {cu.dispositivo} ({cu.os} - {cu.browser}) <br/>
-                        <span style={{ fontSize:10, color:c.text3 }}>ID Unico: {cu.deviceId}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {pinError && <p style={{ fontSize:11, color:"#C0392B", margin:"4px 0 0 0" }}>{pinError}</p>}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ENTORNO ALUMNO */}
-        {!esProfesor && (
-          <>
-            {vista === "lista" || vista === "form_alumno" || vista === "form_profesor" ? (
-              <>
-                <AppHeader sesion={sesion} esProfesor={false} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-                
-                {enviado && (
-                  <div style={{ background:c.green, color:c.greenTx, padding:14, borderRadius:12, marginBottom:16, fontSize:13, fontWeight:500 }}>
-                    ✓ Tu reporte ha sido enviado con cifrado de grado militar. Ningún rastro personal ha sido guardado. Los docentes responderán a este alias a la brevedad.
-                  </div>
-                )}
-
-                <div style={{ background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:16, padding:18, marginBottom:20, display:"flex", flexDirection:"column", gap:12 }}>
-                  <h3 style={{ margin:0, fontSize:15, fontWeight:600, color:c.text }}>Nuevo Reporte Confidencial</h3>
-                  
-                  <div>
-                    <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:5 }}>Categoría del Incidente</label>
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                      {CATEGORIAS.map(catItem => (
-                        <button key={catItem} onClick={()=>{ play("click"); setCat(catItem); }} style={{ padding:"6px 12px", borderRadius:99, fontSize:12, cursor:"pointer", background:cat===catItem?c.info_bg:c.bg2, color:cat===catItem?c.info_tx:c.text2, border:cat===catItem?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{CAT_ICON[catItem]} {catItem}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:5 }}>Descripción de los hechos (Evita nombres reales si deseas anonimato absoluto)</label>
-                    <textarea style={{ ...inp, height:90, resize:"none", fontFamily:"inherit" }} value={desc} onChange={e=>{setDesc(e.target.value); if(enviado)setEnviado(false);}} placeholder="Escribe aquí de forma clara detallando lo sucedido..." />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:5 }}>Información Opcional (Nombres de implicados, aulas, etc.)</label>
-                    <input style={inp} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Ej: Ocurrió en el pabellón B durante el segundo recreo." />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:5 }}>Adjuntar Evidencias (Fotos, capturas - Máx 5)</label>
-                    <input type="file" ref={fileRef} multiple accept="image/*,application/pdf,text/plain" onChange={e=>handleFiles(e.target.files)} style={{ display:"none" }} />
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <button onClick={()=>fileRef.current.click()} style={{ padding:"8px 14px", borderRadius:8, border:`0.5px solid ${c.border}`, background:c.bg2, color:c.text2, fontSize:13, cursor:"pointer" }}>📎 Seleccionar archivos</button>
-                      <span style={{ fontSize:11, color:c.text3 }}>{adjuntos.length} cargados</span>
-                    </div>
-                    {adjuntos.length > 0 && (
-                      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:8 }}>
-                        {adjuntos.map((a,i)=>(
-                          <span key={i} style={{ fontSize:11, background:c.bg2, padding:"3px 8px", borderRadius:6, color:c.text2 }}>{a.name.slice(0,12)}...</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <button onClick={enviarReporte} style={{ ...btnS(c.blue,"#fff"), marginTop:6 }}>Enviar Reporte Seguro 🔒</button>
-                </div>
-
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  <h3 style={{ margin:"6px 0 2px 0", fontSize:14, color:c.text2 }}>Historial de mis reportes creados</h3>
-                  {reportesFiltrados.length === 0 && <div style={{ textAlign:"center", padding:24, color:c.text3, fontSize:13, background:c.bg3, borderRadius:14, border:`0.5px solid ${c.border2}` }}>Aún no has creado ningún reporte. Tu bandeja está limpia.</div>}
-                  {reportesFiltrados.map(r => (
-                    <CardReporte key={r.id} r={r} onClick={()=>{ setSelId(r.id); setVista("detalle"); marcarLeidos(r.id); }} esDir={false} esProfesor={false} dark={dark} c={c} play={play} />
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                {selReporte && (
-                  <>
-                    <AppHeader titulo="Detalles de mi Reporte" onBack={()=>{ setVista("lista"); setSelId(null); }} sesion={sesion} esProfesor={false} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-                    {renderDetalle(selReporte, false)}
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {/* ENTORNO PROFESOR */}
-        {esProfesor && (
-          <>
-            {(vista === "lista" || vista === "form_alumno" || vista === "form_profesor") && (
-              <>
-                <AppHeader sesion={sesion} esProfesor={true} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-                
-                <div style={{ display:"flex", gap:14, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:10, marginBottom:14 }}>
-                  <button onClick={()=>{ play("click"); setFiltro("Todos"); }} style={{ background:"none", border:"none", borderBottom:filtroD!=="Directiva" ? `2px solid ${c.blue}` : "none", color:filtroD!=="Directiva"?c.blue:c.text2, fontWeight:500, paddingBottom:4, cursor:"pointer", fontSize:14 }}>Reportes de Alumnos ({reportes.length})</button>
-                  <button onClick={()=>{ play("click"); setFiltroD("Todos"); setVista("directiva"); }} style={{ background:"none", border:"none", color:c.text2, paddingBottom:4, cursor:"pointer", fontSize:14 }}>Canal de la Directiva ({repDirectiva.length})</button>
-                </div>
-
-                <FiltroBar opciones={ESTADOS} valor={filtro} onChange={setFiltro} c={c} play={play} />
-
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {reportesFiltrados.length === 0 && <div style={{ textAlign:"center", padding:24, color:c.text3, fontSize:13 }}>No hay casos en este estado.</div>}
-                  {reportesFiltrados.map(r => (
-                    <CardReporte key={r.id} r={r} onClick={()=>{ setSelId(r.id); setVista("detalle"); }} esDir={false} esProfesor={true} dark={dark} c={c} play={play} />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {vista === "directiva" && (
-              <>
-                <AppHeader sesion={sesion} esProfesor={true} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-
-                <div style={{ display:"flex", gap:14, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:10, marginBottom:14 }}>
-                  <button onClick={()=>{ play("click"); setVista("lista"); setFiltro("Todos"); }} style={{ background:"none", border:"none", color:c.text2, paddingBottom:4, cursor:"pointer", fontSize:14 }}>Reportes de Alumnos ({reportes.length})</button>
-                  <button onClick={()=>{ play("click"); }} style={{ background:"none", border:"none", borderBottom:`2px solid ${c.blue}`, color:c.blue, fontWeight:500, paddingBottom:4, cursor:"pointer", fontSize:14 }}>Canal de la Directiva ({repDirectiva.length})</button>
-                </div>
-
-                {enviadoDir && (
-                  <div style={{ background:c.green, color:c.greenTx, padding:12, borderRadius:10, marginBottom:14, fontSize:13 }}>
-                    ✓ Reporte administrativo archivado en el canal de la directiva correctamente.
-                  </div>
-                )}
-
-                <div style={{ background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:16, padding:16, marginBottom:16, display:"flex", flexDirection:"column", gap:10 }}>
-                  <h4 style={{ margin:0, fontSize:14, color:c.text }}>Redactar Incidencia de Directiva / Docente</h4>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    {CAT_DIR.map(cd => (
-                      <button key={cd} onClick={()=>{ play("click"); setCatDir(cd); }} style={{ padding:"5px 10px", borderRadius:99, fontSize:11, cursor:"pointer", background:catDir===cd?c.info_bg:c.bg2, color:catDir===cd?c.info_tx:c.text2, border:catDir===cd?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{CAT_ICON[cd]} {cd}</button>
-                    ))}
-                  </div>
-                  <textarea style={{ ...inp, height:70, resize:"none" }} value={descDir} onChange={e=>{setDescDir(e.target.value); if(enviadoDir)setEnviadoDir(false);}} placeholder="Detalles específicos..." />
-                  <button onClick={enviarReporteDir} style={btnS("#1A5276","#fff")}>Publicar en Canal de Directiva</button>
-                </div>
-
-                <FiltroBar opciones={ESTADOS} valor={filtroD} onChange={setFiltroD} c={c} play={play} />
-
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {repDirFiltrados.length === 0 && <div style={{ textAlign:"center", padding:24, color:c.text3, fontSize:13 }}>No hay reportes de directiva.</div>}
-                  {repDirFiltrados.map(r => (
-                    <CardReporte key={r.id} r={r} onClick={()=>{ setSelId(r.id); setVista("detalleDir"); }} esDir={true} esProfesor={true} dark={dark} c={c} play={play} />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {vista === "detalle" && selReporte && (
-              <>
-                <AppHeader titulo="Gestión de Reporte de Alumno" onBack={()=>{ setVista("lista"); setSelId(null); }} sesion={sesion} esProfesor={true} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-                {renderDetalle(selReporte, false)}
-              </>
-            )}
-
-            {vista === "detalleDir" && selRepDir && (
-              <>
-                <AppHeader titulo="Detalle de Reporte Administrativo" onBack={()=>{ setVista("directiva"); setSelId(null); }} sesion={sesion} esProfesor={true} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-                {renderDetalle(selRepDir, true)}
-              </>
-            )}
-          </>
-        )}
-
-      </div>
+      {/* Puedes ejecutar registrarProfesor("Nombre", "Cargo", "Contraseña") desde tu UI o consola */}
     </div>
   );
 }
