@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 // ══════════════════════════════════════════════════════════════════════
 // 🔐 SEGURIDAD ULTRA-AVANZADA — ANTI-HACKING & CRYPTO COMPLEX
-// ══════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 const CRYPTO_KEY = "SafeSchool_IE_2025_$ecure#Key!";
 
 // Enmascaramiento de credenciales para evitar lectura en texto plano del bundle/script
@@ -333,6 +333,9 @@ export default function App() {
   const [pinError,      setPinError]      = useState("");
   const [pinVerificado, setPinVerificado] = useState(false);
 
+  // Módulos añadidos: Estado para el Buscador Avanzado en Tiempo Real
+  const [busqueda, setBusqueda] = useState("");
+
   // Estados del formulario de registro de profesores
   const [regProfNombre, setRegProfNombre] = useState("");
   const [regProfCargo, setRegProfCargo] = useState("");
@@ -380,20 +383,41 @@ export default function App() {
   const [desc,      setDesc]      = useState(""); const [descDir, setDescDir] = useState("");
   const [nota,      setNota]      = useState(""); const [notaDir, setNotaDir] = useState("");
   const [adjuntos,  setAdjuntos]  = useState([]);
-  const [enviado,   setEnviado]   = useState(false);
+  const [enviado,    setEnviado]    = useState(false);
   const [enviadoDir,setEnviadoDir]= useState(false);
-  const [chatMsg,   setChatMsg]   = useState("");
-  const [notaInt,   setNotaInt]   = useState("");
+  const [chatMsg,    setChatMsg]    = useState("");
+  const [notaInt,    setNotaInt]    = useState("");
   const [confirmDel,setConfirmDel]= useState(null);
   const fileRef = useRef();
 
   const esProfesor = sesion?.tipo === "profesor";
   const selReporte = reportes.find(r => r.id === selId);
   const selRepDir  = repDirectiva.find(r => r.id === selId);
+
+  // 🔎 FUNCIONALIDAD NUEVA 1: Lógica del buscador en tiempo real interactuando con los filtros existentes
   const reportesFiltrados = esProfesor
-    ? reportes.filter(r => filtro==="Todos" || r.estado===filtro)
-    : reportes.filter(r => r.alumnoId===sesion?.id);
-  const repDirFiltrados = repDirectiva.filter(r => filtroD==="Todos" || r.estado===filtroD);
+    ? reportes.filter(r => {
+        const pasaFiltro = filtro === "Todos" || r.estado === filtro;
+        const textoBusqueda = busqueda.toLowerCase().trim();
+        const pasaBusqueda = !textoBusqueda || 
+          r.alias.toLowerCase().includes(textoBusqueda) || 
+          r.descripcion.toLowerCase().includes(textoBusqueda) || 
+          r.categoria.toLowerCase().includes(textoBusqueda) ||
+          (r.nota && r.nota.toLowerCase().includes(textoBusqueda));
+        return pasaFiltro && pasaBusqueda;
+      })
+    : reportes.filter(r => r.alumnoId === sesion?.id);
+
+  const repDirFiltrados = repDirectiva.filter(r => {
+    const pasaFiltro = filtroD === "Todos" || r.estado === filtroD;
+    const textoBusqueda = busqueda.toLowerCase().trim();
+    // Profesores pueden buscar en tiempo real en directiva también
+    const pasaBusqueda = !esProfesor || !textoBusqueda || 
+      r.autor.toLowerCase().includes(textoBusqueda) || 
+      r.descripcion.toLowerCase().includes(textoBusqueda) || 
+      r.categoria.toLowerCase().includes(textoBusqueda);
+    return pasaFiltro && pasaBusqueda;
+  });
 
   const inp   = { width:"100%", padding:"10px 12px", borderRadius:10, border:`0.5px solid ${c.border}`, background:c.bg3, color:c.text, fontSize:14, boxSizing:"border-box", outline:"none" };
   const btnS  = (bg,col) => ({ padding:"11px", borderRadius:10, border:"none", background:bg, color:col, fontSize:14, fontWeight:500, cursor:"pointer", width:"100%" });
@@ -431,6 +455,7 @@ export default function App() {
     setProfUser(""); setProfPass(""); setEnviado(false); setEnviadoDir(false);
     setChatMsg(""); setNotaInt(""); setPinCuentas(""); setPinVerificado(false); setPinError("");
     setModoProfesorOculto(false);
+    setBusqueda(""); // Reseteamos la búsqueda
     setPantalla("inicio");
     setSesion(null);
   }
@@ -562,6 +587,11 @@ export default function App() {
     setReportes(prev => prev.map(r => r.id===id?{...r,chat:(r.chat||[]).map(m=>m.de==="profesor"?{...m,leido:true}:m)}:r));
   }
 
+  // 💬 FUNCIONALIDAD NUEVA 2: Marcar leídos también para los mensajes de la directiva
+  function marcarLeidosDir(id) {
+    setRepDirectiva(prev => prev.map(r => r.id===id?{...r,chat:(r.chat||[]).map(m=>m.de==="alumno"?{...m,leido:true}:m)}:r));
+  }
+
   function agregarNota(id, esDir=false) {
     if (!notaInt.trim()) return;
     play("click");
@@ -602,378 +632,421 @@ export default function App() {
           {r.adjuntos?.length>0 && (
             <div style={{ marginTop:12 }}>
               <div style={{ fontSize:12, color:c.text2, marginBottom:8 }}>📎 Archivos adjuntos</div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                {r.adjuntos.map((a,i) => a.type?.startsWith("image/")
-                  ? <img key={i} src={a.dataUrl} alt={a.name} style={{ width:80, height:80, objectFit:"cover", borderRadius:8 }} />
-                  : <a key={i} href={a.dataUrl} download={a.name} style={{ fontSize:12, color:c.info_tx, background:c.info_bg, padding:"6px 10px", borderRadius:8, textDecoration:"none" }}>📄 {a.name}</a>
-                )}
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {r.adjuntos.map((file, i) => (
+                  <a key={i} href={file.dataUrl} download={file.name} style={{ fontSize:13, color:c.info_tx, textDecoration:"none", display:"flex", alignItems:"center", gap:6 }}>
+                    📄 {file.name} <span style={{ fontSize:11, color:c.text3 }}>(Descargar)</span>
+                  </a>
+                ))}
               </div>
             </div>
           )}
         </div>
 
-        {esProfesor
-          ? <div><label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>Estado del caso</label>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                {ESTADOS.map(est => { const col=ESTADO_COLOR[est]; const a=r.estado===est; return (
-                  <button key={est} onClick={()=>cambiarEstado(r.id,est,esDir)} style={{ padding:"6px 14px", borderRadius:99, fontSize:13, cursor:"pointer", background:a?(dark?col.bgD:col.bg):c.bg2, color:a?(dark?col.textD:col.text):c.text2, border:a?`1.5px solid ${col.dot}`:`0.5px solid ${c.border}`, fontWeight:a?500:400 }}>{est}</button>
-                ); })}
+        {/* Módulos de Gestión Exclusivos del Profesor */}
+        {esProfesor && (
+          <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:"16px 18px", display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:c.text }}>⚙️ Panel de Control del Reporte</div>
+            <div>
+              <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:6 }}>Cambiar Estado:</label>
+              <div style={{ display:"flex", gap:8 }}>
+                {ESTADOS.map(est => (
+                  <button key={est} onClick={() => cambiarEstado(r.id, est, esDir)} style={{ flex:1, padding:"8px", fontSize:12, borderRadius:8, border:r.estado===est?`1px solid ${c.blue}`:`0.5px solid ${c.border}`, background:r.estado===est?c.info_bg:c.bg2, color:r.estado===est?c.info_tx:c.text, cursor:"pointer", fontWeight:r.estado===est?600:400 }}>
+                    {est}
+                  </button>
+                ))}
               </div>
             </div>
-          : <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:13, color:c.text2 }}>Estado:</span><Badge estado={r.estado} dark={dark} /></div>
-        }
-
-        <div>
-          <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>💬 Chat con {esProfesor?"el alumno":"el profesor"}</label>
-          <div style={{ background:c.bg2, borderRadius:12, padding:12, marginBottom:8, minHeight:80, maxHeight:200, overflowY:"auto", display:"flex", flexDirection:"column", gap:8 }}>
-            {(r.chat||[]).length===0 && <div style={{ fontSize:13, color:c.text3, textAlign:"center", marginTop:16 }}>Sin mensajes aún</div>}
-            {(r.chat||[]).map(m => (
-              <div key={m.id} style={{ display:"flex", justifyContent:m.de==="profesor"?"flex-start":"flex-end" }}>
-                <div style={{ maxWidth:"75%", background:m.de==="profesor"?(dark?"#0d2a45":"#E6F1FB"):(dark?"#1a3a1a":"#EAF3DE"), borderRadius:10, padding:"8px 12px" }}>
-                  <div style={{ fontSize:11, color:c.text3, marginBottom:3 }}>{m.de==="profesor"?"Profesor":"Tú"} · {m.fecha}</div>
-                  <div style={{ fontSize:13, color:c.text }}>{m.texto}</div>
+            <div style={{ borderTop:`0.5px solid ${c.border2}`, paddingTop:12 }}>
+              <label style={{ fontSize:12, color:c.text2, display:"block", marginBottom:6 }}>Notas Internas (Solo Profesores):</label>
+              <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                <input type="text" value={notaInt} onChange={e=>setNotaInt(e.target.value)} placeholder="Añadir nota privada..." style={inp} />
+                <button onClick={() => agregarNota(r.id, esDir)} style={{ ...btnS(c.blue, "#fff"), width:"auto", padding:"10px 16px" }}>+</button>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {(r.notas_internas||[]).map((n, i) => (
+                  <div key={i} style={{ background:c.bg2, padding:"8px 10px", borderRadius:8, fontSize:12, color:c.text }}>
+                    <div style={{ color:c.text3, fontSize:10, marginBottom:2 }}>{n.fecha}</div>
+                    {n.texto}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ borderTop:`0.5px solid ${c.border2}`, paddingTop:12 }}>
+              {confirmDel === r.id ? (
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:12, color:"#C0392B", flex:1 }}>¿Seguro que deseas eliminar este reporte de forma permanente?</span>
+                  <button onClick={() => eliminarReporte(r.id, esDir)} style={{ ...btnS("#C0392B","#fff"), width:"auto", padding:"6px 12px", fontSize:12 }}>Sí, eliminar</button>
+                  <button onClick={() => setConfirmDel(null)} style={{ ...btnS(c.bg2, c.text), width:"auto", padding:"6px 12px", fontSize:12, border:`0.5px solid ${c.border}` }}>No</button>
                 </div>
+              ) : (
+                <button onClick={() => setConfirmDel(r.id)} style={{ ...btnS("transparent", "#C0392B"), border:"1px solid #C0392B", padding:"8px", fontSize:12 }}>⚠️ Eliminar Reporte del Sistema</button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 💬 FUNCIONALIDAD NUEVA 2: Chat Bidireccional Expandido a Directiva y Alumnos */}
+        {(!esDir || esProfesor) && (
+          <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:"16px 18px", display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:c.text }}>💬 Canal de Comunicación Directo ({esDir ? "Directiva" : "Anónimo"})</div>
+            <div style={{ background:c.bg2, borderRadius:10, padding:"10px", height:180, overflowY:"auto", display:"flex", flexDirection:"column", gap:8 }}>
+              {(r.chat||[]).length === 0 ? (
+                <div style={{ color:c.text3, fontSize:12, textAlign:"center", marginTop:70 }}>No hay mensajes en este canal.</div>
+              ) : (
+                (r.chat||[]).map(m => {
+                  const soyYo = esProfesor ? m.de==="profesor" : m.de==="alumno";
+                  return (
+                    <div key={m.id} style={{ alignSelf:soyYo?"flex-end":"flex-start", maxWidth:"80%", background:soyYo?c.blue:(dark?"#333":"#e2e8f0"), color:soyYo?"#fff":c.text, padding:"8px 12px", borderRadius:12, borderBottomRightRadius:soyYo&&m.de==="profesor"?2:12, borderBottomLeftRadius:!soyYo&&m.de==="alumno"?2:12, fontSize:13 }}>
+                      <div>{m.texto}</div>
+                      <div style={{ fontSize:9, color:soyYo?"rgba(255,255,255,0.7)":c.text3, textAlign:"right", marginTop:3, display:"flex", gap:4, justifyContent:"flex-end" }}>
+                        {m.fecha} {soyYo && !esDir && (m.leido ? "✓✓" : "✓")}
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            )}
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input type="text" value={chatMsg} onChange={e=>setChatMsg(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") enviarChat(r.id, esDir);}} placeholder="Escribe un mensaje seguro..." style={inp} />
+              <button onClick={() => enviarChat(r.id, esDir)} style={{ ...btnS(c.blue, "#fff"), width:"auto", padding:"10px 18px" }}>Enviar</button>
+            </div>
+          </div>
+        )}
+
+        {/* Historial de Auditoría */}
+        <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:"14px 16px" }}>
+          <div style={{ fontSize:12, fontWeight:500, color:c.text2, marginBottom:8 }}>📋 Historial de Seguimiento</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {(r.historial||[]).map((h, i) => (
+              <div key={i} style={{ fontSize:12, color:c.text2, display:"flex", justifyContent:"space-between" }}>
+                <span>• {h.accion}</span>
+                <span style={{ fontSize:11, color:c.text3 }}>{h.fecha} - {h.hora}</span>
               </div>
             ))}
           </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <input style={{ ...inp, flex:1 }} value={chatMsg} onChange={e=>setChatMsg(e.target.value)} placeholder="Escribe un mensaje..." onKeyDown={e=>e.key==="Enter"&&enviarChat(r.id,esDir)} />
-            <button onClick={()=>enviarChat(r.id,esDir)} style={{ padding:"0 16px", borderRadius:10, border:"none", background:c.blue, cursor:"pointer", fontSize:13, color:"#fff" }}>Enviar</button>
-          </div>
         </div>
-
-        {esProfesor && (
-          <div>
-            <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:8 }}>📝 Notas internas (Solo profesores)</label>
-            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-              <input style={{ ...inp, flex:1 }} value={notaInt} onChange={e=>setNotaInt(e.target.value)} placeholder="Agregar nota privada sobre el caso..." onKeyDown={e=>e.key==="Enter"&&agregarNota(r.id,esDir)} />
-              <button onClick={()=>agregarNota(r.id,esDir)} style={{ padding:"0 16px", borderRadius:10, border:"none", background:c.blue, cursor:"pointer", fontSize:13, color:"#fff" }}>+</button>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {(r.notas_internas||[]).map((n,i) => (
-                <div key={i} style={{ background:c.warn_bg, border:`0.5px solid ${dark?"#4a2500":"#ffe0b2"}`, padding:"10px 12px", borderRadius:10, fontSize:13, color:c.warn_tx }}>
-                  <span style={{ fontSize:11, opacity:0.7, display:"block", marginBottom:2 }}>{n.fecha}</span>
-                  {n.texto}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  if (!appReady) return <div style={{ background:c.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:c.text2, fontSize:14 }}>Cargando SafeSchool cifrado...</div>;
-
-  // ── PANTALLA DE AUTENTICACIÓN ──
-  if (pantalla !== "app") {
+  // ══════════════════════════════════════════════
+  // VISTA INTERFAZ AUTENTICACIÓN
+  // ══════════════════════════════════════════════
+  if (pantalla === "inicio") {
     return (
       <div style={authWrap}>
-        <div style={{ textAlign:"center", marginBottom:28 }}>
-          <span style={{ fontSize:32 }}>🛡️</span>
-          <h1 style={{ fontSize:20, fontWeight:600, color:c.text, marginTop:8, marginBottom:4 }}>SafeSchool</h1>
-          <p style={{ fontSize:13, color:c.text2 }}>Canal de Reportes Anónimos Seguro</p>
+        <div style={{ textAlign:"center", marginBottom:24 }}>
+          <div style={{ fontSize:32, marginBottom:4 }}>🔒</div>
+          <h1 style={{ fontSize:20, fontWeight:600, color:c.text, margin:0 }}>SafeSchool v2</h1>
+          <p style={{ fontSize:13, color:c.text2, margin:"4px 0 0 0" }}>Línea de Reporte Segura y Encriptada</p>
         </div>
 
-        {pantalla === "inicio" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <button onClick={()=>{play("nav"); setPantalla("login_alumno");}} style={btnS(c.blue,"#fff")}>Soy Alumno (Ingresar)</button>
-            <button onClick={()=>{play("nav"); setPantalla("login_profesor");}} style={btnS(c.bg2,c.text)}>Soy Docente / Directiva</button>
-            <div style={{ height:1, background:c.border2, margin:"8px 0" }} />
-            <button onClick={()=>{play("nav"); setPantalla("registro"); setErrMsg(""); setModoProfesorOculto(false);}} style={{ ...btnS("none",c.info_tx), border:`1px solid ${c.info_tx}` }}>Crear una cuenta nueva</button>
+        {modoProfesorOculto ? (
+          // Formulario oculto de registro de profesores administradores
+          <div style={{ display:"flex", flexDirection:"column", gap:12, background:c.warn_bg, padding:14, borderRadius:12, border:`0.5px solid ${c.warn_tx}` }}>
+            <div style={{ fontSize:13, fontWeight:600, color:c.warn_tx }}>⚡ REGISTRO DE PERSONAL AUTORIZADO</div>
+            <input type="text" placeholder="Nombre completo del Docente" value={regProfNombre} onChange={e=>setRegProfNombre(e.target.value)} style={inp} />
+            <input type="text" placeholder="Cargo (Ej: Subdirector, Tutor 4to)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} style={inp} />
+            <input type="password" placeholder="Clave de acceso nueva" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} style={inp} />
+            {errMsg && <div style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</div>}
+            <button onClick={registrarProfesor} style={btnS(c.blue, "#fff")}>Dar de Alta e Iniciar Sesión</button>
+            <button onClick={()=>{ play("back"); setModoProfesorOculto(false); setErrMsg(""); }} style={{ ...btnS("transparent", c.text2), fontSize:12 }}>Cancelar</button>
           </div>
-        )}
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {/* Registro de Alumnos Anónimos */}
+            <div style={{ background:c.bg3, padding:16, borderRadius:14, border:`0.5px solid ${c.border2}`, display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text }}>Crear una Cuenta Anónima</div>
+              <input type="text" placeholder="Inventa un Alias (No uses tu nombre)" value={nuevoUser} onChange={e=>setNuevoUser(e.target.value)} style={inp} />
+              <input type="password" placeholder="Contraseña de seguridad" value={nuevaPass} onChange={e=>setNuevaPass(e.target.value)} style={inp} />
+              {errMsg && <div style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</div>}
+              <button onClick={registrarAlumno} style={btnS(c.blue, "#fff")}>Registrarse y Entrar 🛡️</button>
+            </div>
 
-        {(pantalla === "login_alumno" || pantalla === "login_profesor") && (
-          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            <h2 style={{ fontSize:15, fontWeight:500, color:c.text }}>Iniciar sesión ({pantalla==="login_alumno"?"Alumno":"Personal"})</h2>
-            <input style={inp} placeholder="Nombre de usuario o alias" value={pantalla==="login_alumno"?loginUser:profUser} onChange={e=>pantalla==="login_alumno"?setLoginUser(e.target.value):setProfUser(e.target.value)} />
-            <input style={inp} type="password" placeholder="Contraseña" value={pantalla==="login_alumno"?loginPass:profPass} onChange={e=>pantalla==="login_alumno"?setLoginPass(e.target.value):setProfPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(pantalla==="login_alumno"?loginAlumno():loginProfesor())} />
-            {errMsg && pantalla==="login_alumno" && <p style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</p>}
-            {errProf && pantalla==="login_profesor" && <p style={{ fontSize:12, color:"#C0392B" }}>{errProf}</p>}
-            <button onClick={pantalla==="login_alumno"?loginAlumno:loginProfesor} style={btnS(c.blue,"#fff")}>Entrar Seguro →</button>
-            <button onClick={()=>{play("back"); setPantalla("inicio"); setErrMsg(""); setErrProf("");}} style={{ ...btnS("none",c.text2), fontSize:12 }}>← Volver</button>
-          </div>
-        )}
+            {/* Login Alumnos */}
+            <div style={{ background:c.bg3, padding:16, borderRadius:14, border:`0.5px solid ${c.border2}`, display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text }}>Ingresar con tu Alias</div>
+              <input type="text" placeholder="Tu alias registrado" value={loginUser} onChange={e=>setLoginUser(e.target.value)} style={inp} />
+              <input type="password" placeholder="Tu contraseña" value={loginPass} onChange={e=>setLoginPass(e.target.value)} style={inp} />
+              <button onClick={loginAlumno} style={btnS(c.bg2, c.text)}>Entrar al Sistema</button>
+            </div>
 
-        {pantalla === "registro" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            
-            {!modoProfesorOculto ? (
-              <>
-                <h2 style={{ fontSize:15, fontWeight:500, color:c.text }}>Crear cuenta de Alumno</h2>
-                <p style={{ fontSize:12, color:c.text2 }}>Usa un pseudónimo o alias si prefieres resguardar al máximo tu identidad.</p>
-                <input style={inp} placeholder="Crea tu Alias (ej: HalcónBlanco)" value={nuevoUser} onChange={e=>setNuevoUser(e.target.value)} />
-                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={nuevaPass} onChange={e=>setNuevaPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&registrarAlumno()} />
-                {errMsg && <p style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</p>}
-                <button onClick={registrarAlumno} style={btnS(c.blue,"#fff")}>Registrar y Entrar</button>
-              </>
-            ) : (
-              <>
-                <h2 style={{ fontSize:15, fontWeight:500, color:c.greenTx }}>⚡ Registro Docente Activado</h2>
-                <p style={{ fontSize:12, color:c.text2 }}>Has ingresado a la interfaz de administración escolar interna.</p>
-                <input style={inp} placeholder="Nombre completo del Profesor" value={regProfNombre} onChange={e=>setRegProfNombre(e.target.value)} />
-                <input style={inp} placeholder="Cargo (ej: Tutor 4to, Psicólogo)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} />
-                <input style={inp} type="password" placeholder="Contraseña (mín. 6 caracteres)" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&registrarProfesor()} />
-                {errMsg && <p style={{ fontSize:12, color:"#C0392B" }}>{errMsg}</p>}
-                <button onClick={registrarProfesor} style={btnS(c.greenTx, "#fff")}>Registrar Profesor e Ingresar</button>
-              </>
-            )}
-
-            <button onClick={()=>{play("back"); setPantalla("inicio"); setErrMsg(""); setNuevoUser(""); setNuevaPass(""); setModoProfesorOculto(false);}} style={{ ...btnS("none",c.text2), fontSize:12 }}>← Volver</button>
+            {/* Login Profesores */}
+            <div style={{ background:c.bg3, padding:16, borderRadius:14, border:`0.5px solid ${c.border2}`, display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text }}>Acceso Docentes / Directiva</div>
+              <input type="text" placeholder="Usuario docente" value={profUser} onChange={e=>setPhUser ? setProfUser(e.target.value) : setProfUser(e.target.value)} style={inp} />
+              <input type="password" placeholder="Contraseña docente" value={profPass} onChange={e=>setProfPass(e.target.value)} style={inp} />
+              {errProf && <div style={{ fontSize:12, color:"#C0392B" }}>{errProf}</div>}
+              <button onClick={loginProfesor} style={btnS("#111827", "#fff")}>Verificar Identidad 🔑</button>
+            </div>
           </div>
         )}
       </div>
     );
   }
 
-  // ── INTERFAZ GENERAL DE LA APLICACIÓN ──
+  // ══════════════════════════════════════════════
+  // VISTA PANEL DE CONFIGURACIÓN / AJUSTES
+  // ══════════════════════════════════════════════
   if (ajustes) {
     return (
       <div style={wrap}>
-        <AppHeader titulo="Configuración del Sistema" onBack={()=>setAjustes(false)} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <div>
-            <div style={{ fontSize:14, fontWeight:500, color:c.text, marginBottom:4 }}>Security & Cryptography</div>
-            <div style={{ fontSize:12, color:c.text2, lineHeight:1.5, background:c.bg2, padding:10, borderRadius:8 }}>
-              Toda la base de datos local está encriptada bajo el estándar <b>AES-GCM (256-bit)</b>. Las credenciales se procesan exclusivamente con funciones hash asíncronas <b>SHA-256</b>. Anti-Debugger Frontend inyectado.
+        <AppHeader titulo="Configuración del Sistema" onBack={()=>{setAjustes(false); setVistaLogs(false); setVistaCuentas(false); setPinVerificado(false); setPinCuentas(""); setPinError("");}} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
+        
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:16, display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:14, fontWeight:500, color:c.text }}>Sesión Actual</div>
+            <div style={{ fontSize:13, color:c.text2 }}>
+              <strong>Identificación:</strong> {sesion?.nombre || sesion?.usuario}<br/>
+              <strong>Tipo de Cuenta:</strong> {sesion?.tipo === "profesor" ? "👨‍🏫 Personal Docente Autorizado" : "🎓 Alumno (Anonimato Asegurado)"}
             </div>
+            <button onClick={cerrarSesion} style={btnS("#C0392B", "#fff")}>Cerrar Sesión de Forma Segura</button>
           </div>
+
           {esProfesor && (
-            <>
-              <button onClick={()=>{play("nav"); setVistaLogs(true); setAjustes(false);}} style={btnS(c.bg2,c.text)}>📋 Ver Logs de Auditoría (Accesos)</button>
-              <button onClick={()=>{play("nav"); setVistaCuentas(true); setAjustes(false); setPinVerificado(false); setPinCuentas("");}} style={btnS(c.bg2,c.text)}>👥 Gestión de Cuentas del Dispositivo</button>
-              <button onClick={()=>{play("click"); exportarTXT(reportes, repDirectiva);}} style={btnS(c.green,c.greenTx)}>📥 Exportar todo en formato .TXT</button>
-            </>
-          )}
-          <button onClick={cerrarSesion} style={btnS("#C0392B","#fff")}>Cerrar Sesión Segura 🔒</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (vistaLogs && esProfesor) {
-    return (
-      <div style={wrap}>
-        <AppHeader titulo="Logs de Auditoría" onBack={()=>{setVistaLogs(false); setAjustes(true);}} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-        <p style={{ fontSize:12, color:c.text2, marginBottom:12 }}>Registro inmutable de los últimos 100 accesos y acciones clave del sistema:</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:450, overflowY:"auto" }}>
-          {logs.map((l,i) => (
-            <div key={i} style={{ padding:10, background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:10, fontSize:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", color:c.text3, marginBottom:2 }}>
-                <span>{l.fecha} · {l.hora}</span><span>{l.device}</span>
+            <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:16, display:"flex", flexDirection:"column", gap:12 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text }}>🛠️ Herramientas Administrativas Superiores</div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>{ play("nav"); setVistaLogs(true); setVistaCuentas(false); }} style={{ ...btnS(c.bg2, c.text), flex:1, border:`0.5px solid ${c.border}` }}>Ver Logs globales</button>
+                <button onClick={()=>{ play("nav"); setVistaCuentas(true); setVistaLogs(false); }} style={{ ...btnS(c.bg2, c.text), flex:1, border:`0.5px solid ${c.border}` }}>Ver Cuentas Alumnos</button>
               </div>
-              <span style={{ color:c.text, fontWeight:500 }}>{l.evento}</span> · <span style={{ color:c.text2 }}>{l.usuario}</span>
+              <button onClick={() => exportarTXT(reportes, repDirectiva)} style={btnS(c.blue, "#fff")}>💾 Exportar Base de Datos (.TXT)</button>
             </div>
-          ))}
-          {logs.length===0 && <div style={{ fontSize:13, color:c.text3, textAlign:"center" }}>Sin logs registrados.</div>}
+          )}
+
+          {/* Subpanel: Logs */}
+          {vistaLogs && esProfesor && (
+            <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:16 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text, marginBottom:10 }}>📋 Registro de Auditoría Interna (Últimos 100 eventos)</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:300, overflowY:"auto" }}>
+                {logs.map((l, i) => (
+                  <div key={i} style={{ fontSize:11, color:c.text2, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:4 }}>
+                    [{l.fecha} {l.hora}] <strong>{l.evento}</strong> por <em>{l.usuario}</em> ({l.device})
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Subpanel: Cuentas Alumnos */}
+          {vistaCuentas && esProfesor && (
+            <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:16, display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ fontSize:14, fontWeight:500, color:c.text }}>🔒 Ver Dispositivos de Alumnos Registrados</div>
+              {!pinVerificado ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  <label style={{ fontSize:12, color:c.text2 }}>Introduce el PIN de Seguridad del Colegio:</label>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input type="password" placeholder="PIN de Seguridad" value={pinCuentas} onChange={e=>setPinCuentas(e.target.value)} style={inp} />
+                    <button onClick={verificarPin} style={{ ...btnS("#111827","#fff"), width:"auto", padding:"0 16px" }}>Confirmar</button>
+                  </div>
+                  {pinError && <div style={{ fontSize:12, color:"#C0392B" }}>{pinError}</div>}
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:300, overflowY:"auto" }}>
+                  {cuentas.length === 0 ? (
+                    <div style={{ fontSize:12, color:c.text3 }}>No hay registros de metadatos de alumnos todavía.</div>
+                  ) : (
+                    cuentas.map((cu, i) => (
+                      <div key={i} style={{ fontSize:12, color:c.text, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:6 }}>
+                        <div style={{ fontWeight:500, color:c.blue }}>Alias: {cu.usuario}</div>
+                        <div style={{ color:c.text2, fontSize:11 }}>Reg: {cu.fecha} a las {cu.hora}</div>
+                        <div style={{ color:c.text3, fontSize:11 }}>Dispositivo: {cu.dispositivo} · OS: {cu.os} · Nav: {cu.browser}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  if (vistaCuentas && esProfesor) {
-    return (
-      <div style={wrap}>
-        <AppHeader titulo="Cuentas Registradas" onBack={()=>{setVistaCuentas(false); setAjustes(true);}} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
-        {!pinVerificado ? (
-          <div style={{ display:"flex", flexDirection:"column", gap:12, maxWidth:300, margin:"20px auto" }}>
-            <label style={{ fontSize:13, color:c.text2 }}>Ingresa el PIN de Directiva:</label>
-            <input type="password" style={inp} value={pinCuentas} onChange={e=>setPinCuentas(e.target.value)} placeholder="••••" />
-            {pinError && <p style={{ fontSize:12, color:"#C0392B" }}>{pinError}</p>}
-            <button onClick={verificarPin} style={btnS(c.blue,"#fff")}>Verificar PIN</button>
-          </div>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <p style={{ fontSize:12, color:c.text2 }}>Lista de alumnos registrados localmente en este navegador:</p>
-            {cuentas.map((cu,i) => (
-              <div key={i} style={{ padding:12, background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:12, fontSize:13 }}>
-                <div style={{ fontWeight:500, color:c.text, marginBottom:4 }}>👤 {cu.usuario}</div>
-                <div style={{ fontSize:11, color:c.text2 }}>Registrado: {cu.fecha} a las {cu.hora}</div>
-                <div style={{ fontSize:11, color:c.text3, marginTop:2 }}>Disp: {cu.dispositivo} ({cu.os} - {cu.browser})</div>
-              </div>
-            ))}
-            {cuentas.length===0 && <div style={{ fontSize:13, color:c.text3, textAlign:"center" }}>No hay registros de alumnos.</div>}
-          </div>
-        )}
-      </div>
-    );
-  }
-
+  // ══════════════════════════════════════════════
+  // INTERFAZ DE APLICACIÓN PRINCIPAL (LOGUEADO)
+  // ══════════════════════════════════════════════
   return (
     <div style={wrap}>
-      <AppHeader sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
+      {/* Cabecera dinámica de navegación */}
+      {vista === "lista" && <AppHeader titulo={null} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
+      {vista === "crear" && <AppHeader titulo="Crear Nuevo Reporte Seguro" onBack={()=>setVista("lista")} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
+      {vista === "directiva" && <AppHeader titulo="Buzón de Incidencias Institucionales" onBack={()=>setVista("lista")} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
+      {vista === "crear_dir" && <AppHeader titulo="Enviar Reporte a la Directiva" onBack={()=>setVista("directiva")} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
+      {vista === "detalle" && <AppHeader titulo="Expediente Técnico de Incidencia" onBack={()=>{setVista("lista"); setSelId(null); setBusqueda("");}} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
+      {vista === "detalle_dir" && <AppHeader titulo="Expediente de Directiva" onBack={()=>{setVista("directiva"); setSelId(null); setBusqueda("");}} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />}
 
-      {esProfesor && (
-        <div style={{ display:"flex", gap:10, marginBottom:16, borderBottom:`0.5px solid ${c.border2}`, paddingBottom:12 }}>
-          <button onClick={()=>{play("toggle"); setVista("lista"); setSelId(null);}} style={{ background:"none", border:"none", fontSize:14, fontWeight:vista==="lista"?600:400, color:vista==="lista"?c.blue:c.text2, cursor:"pointer" }}>📥 Casos de Alumnos ({reportes.length})</button>
-          <button onClick={()=>{play("toggle"); setVista("directiva"); setSelId(null);}} style={{ background:"none", border:"none", fontSize:14, fontWeight:vista==="directiva"?600:400, color:vista==="directiva"?c.blue:c.text2, cursor:"pointer" }}>👔 Buzón Directiva ({repDirectiva.length})</button>
+      {/* 🔎 FUNCIONALIDAD NUEVA 1: Renderizado del Buscador Avanzado en Tiempo Real (Solo Profesores en Vistas de Listas) */}
+      {esProfesor && (vista === "lista" || vista === "directiva") && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <span style={{ position: "absolute", left: 12, fontSize: 16 }}>🔍</span>
+            <input
+              type="text"
+              placeholder={vista === "lista" ? "Buscar por alias, descripción, categoría o notas..." : "Buscar por docente, descripción o categoría..."}
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              style={{ ...inp, paddingLeft: 38 }}
+            />
+            {busqueda && (
+              <button 
+                onClick={() => setBusqueda("")} 
+                style={{ position: "absolute", right: 12, background: "none", border: "none", color: c.text2, cursor: "pointer", fontSize: 14 }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* VISTA: LISTA DE REPORTES */}
+      {/* ── CONTENIDO DINÁMICO DE PANTALLAS ── */}
+
+      {/* PANTALLA: LISTA DE REPORTES */}
       {vista === "lista" && (
-        <>
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           {esProfesor ? (
             <>
+              <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                <span style={{ fontSize:14, fontWeight:500, color:c.text, flex:1 }}>Buzón General de Alumnos</span>
+                <button onClick={()=>{ play("nav"); setVista("directiva"); setBusqueda(""); }} style={{ ...btnS("#111827", "#fff"), width:"auto", padding:"6px 14px", fontSize:12 }}>📁 Ver Canal Directiva</button>
+              </div>
               <FiltroBar opciones={ESTADOS} valor={filtro} onChange={setFiltro} c={c} play={play} />
+              
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                {reportesFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={()=>{setSelId(r.id); setVista("detalle"); marcarLeidos(r.id);}} esProfesor={true} dark={dark} c={c} play={play} />)}
-                {reportesFiltrados.length===0 && <div style={{ textAlign:"center", padding:"30px 0", color:c.text3, fontSize:13 }}>Ningún reporte coincide con el filtro.</div>}
+                {reportesFiltrados.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"40px 0", color:c.text3, fontSize:14 }}>No se encontraron reportes con los criterios actuales.</div>
+                ) : (
+                  reportesFiltrados.map(r => (
+                    <CardReporte key={r.id} r={r} dark={dark} esProfesor={esProfesor} c={c} play={play} onClick={()=>{ setSelId(r.id); setVista("detalle"); }} />
+                  ))
+                )}
               </div>
             </>
           ) : (
             <>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                <span style={{ fontSize:14, color:c.text2 }}>Tus reportes enviados</span>
-                <button onClick={()=>{play("nav"); setVista("crear"); setEnviado(false);}} style={{ ...btnS(c.blue,"#fff"), width:"auto", padding:"6px 14px", borderRadius:8, fontSize:13 }}>+ Nuevo Reporte Anónimo</button>
+              <div style={{ background:c.info_bg, padding:12, borderRadius:12, color:c.info_tx, fontSize:13, lineHeight:1.5 }}>
+                🛡️ <strong>Tu anonimato está 100% blindado.</strong> El personal del centro escolar no puede rastrear tu IP ni tus datos personales, únicamente verán tu alias y la información detallada que decidas aportar.
               </div>
+              <button onClick={()=>{ play("nav"); setVista("crear"); setEnviado(false); }} style={btnS(c.blue, "#fff")}>➕ Emitir una Nueva Alerta o Reporte</button>
+              
+              <div style={{ fontWeight:500, fontSize:14, color:c.text, marginTop:8, marginBottom:4 }}>Tus Alertas Enviadas</div>
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                {reportesFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={()=>{setSelId(r.id); setVista("detalle");}} esProfesor={false} dark={dark} c={c} play={play} />)}
-                {reportesFiltrados.length===0 && (
-                  <div style={{ textAlign:"center", padding:"40px 10px", background:c.bg2, borderRadius:14, border:`0.5px dashed ${c.border}` }}>
-                    <div style={{ fontSize:24, marginBottom:6 }}>📝</div>
-                    <div style={{ fontSize:14, color:c.text, fontWeight:500, marginBottom:2 }}>Tu bandeja está vacía</div>
-                    <div style={{ fontSize:12, color:c.text2, marginBottom:12 }}>Si has sido testigo o víctima de una situación de riesgo, puedes reportarlo de forma 100% anónima.</div>
-                    <button onClick={()=>{play("nav"); setVista("crear"); setEnviado(false);}} style={{ ...btnS(c.blue,"#fff"), width:"auto", padding:"7px 16px", margin:"0 auto" }}>Crear mi primer reporte</button>
-                  </div>
+                {reportesFiltrados.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"30px 0", color:c.text3, fontSize:13, border:`1px dashed ${c.border}`, borderRadius:12 }}>No has enviado ningún reporte todavía. Tu buzón está limpio.</div>
+                ) : (
+                  reportesFiltrados.map(r => (
+                    <CardReporte key={r.id} r={r} dark={dark} esProfesor={esProfesor} c={c} play={play} onClick={()=>{ setSelId(r.id); setVista("detalle"); marcarLeidos(r.id); }} />
+                  ))
                 )}
               </div>
             </>
           )}
-        </>
+        </div>
       )}
 
-      {/* VISTA: CREAR REPORTE (ALUMNO) */}
-      {vista === "crear" && !esProfesor && (
-        <div>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-            <button onClick={()=>{play("back"); setVista("lista");}} style={{ background:"none", border:"none", color:c.info_tx, cursor:"pointer", fontSize:14 }}>← Volver</button>
-            <h2 style={{ fontSize:16, fontWeight:600, color:c.text }}>Nuevo Reporte Seguro</h2>
-          </div>
+      {/* PANTALLA: CREAR REPORTE ALUMNO */}
+      {vista === "crear" && (
+        <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:"18px 16px" }}>
           {enviado ? (
-            <div style={{ textAlign:"center", padding:"30px 10px" }}>
-              <span style={{ fontSize:32 }}>🎉</span>
-              <h3 style={{ fontSize:16, fontWeight:500, color:c.text, marginTop:8 }}>¡Reporte enviado exitosamente!</h3>
-              <p style={{ fontSize:13, color:c.text2, marginTop:4, marginBottom:16 }}>Los profesores autorizados lo revisarán manteniendo tu anonimato a salvo.</p>
-              <button onClick={()=>{play("back"); setVista("lista");}} style={{ ...btnS(c.bg2,c.text), width:"auto", padding:"6px 16px" }}>Ir a mis reportes</button>
+            <div style={{ textAlign:"center", padding:"20px 0" }}>
+              <div style={{ fontSize:40, marginBottom:10 }}>🚀</div>
+              <h3 style={{ margin:0, color:c.text, fontSize:18 }}>Reporte Transmitido con Éxito</h3>
+              <p style={{ fontSize:13, color:c.text2, margin:"6px 0 16px 0" }}>La alerta ha sido cifrada y depositada de forma segura en el servidor escolar.</p>
+              <button onClick={()=>setVista("lista")} style={btnS(c.bg2, c.text)}>Regresar a mi Bandeja</button>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Categoría del suceso</label>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {CATEGORIAS.map(catOpt => (
-                    <button key={catOpt} onClick={()=>{play("toggle"); setCat(catOpt);}} style={{ padding:"6px 12px", borderRadius:8, fontSize:13, cursor:"pointer", background:cat===catOpt?c.info_bg:c.bg2, color:cat===catOpt?c.info_tx:c.text2, border:cat===catOpt?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{CAT_ICON[catOpt]} {catOpt}</button>
-                  ))}
-                </div>
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Naturaleza de la Incidencia:</label>
+                <select value={cat} onChange={e=>setCat(e.target.value)} style={inp}>
+                  {CATEGORIAS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
               </div>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Descripción de los hechos</label>
-                <textarea style={{ ...inp, minHeight:100, resize:"none", fontFamily:"inherit" }} placeholder="Sé lo más específico posible... Tu identidad nunca será revelada." value={desc} onChange={e=>setDesc(e.target.value)} />
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Descripción Cronológica de los Hechos:</label>
+                <textarea rows={5} placeholder="Explica detalladamente qué sucedió, cuándo y quiénes están implicados. Evita incluir tus datos personales reales." value={desc} onChange={e=>setDesc(e.target.value)} style={{ ...inp, resize:"none", fontFamily:"inherit" }} />
               </div>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Nota de seguridad adicional (Opcional)</label>
-                <input style={inp} placeholder="Ej: No leer este reporte cerca de otros alumnos" value={nota} onChange={e=>setNota(e.target.value)} />
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Nota sobre Implicados / Testigos Opcionales:</label>
+                <input type="text" placeholder="Ej: Compañeros de 4to B que presenciaron el hecho" value={nota} onChange={e=>setNota(e.target.value)} style={inp} />
               </div>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Evidencias (Fotos / Archivos - Máx 5)</label>
-                <input type="file" ref={fileRef} multiple onChange={e=>handleFiles(e.target.files)} style={{ display:"none" }} />
-                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                  <button onClick={()=>{play("click"); fileRef.current.click();}} style={{ ...btnS(c.bg2,c.text), width:"auto", padding:"6px 14px", fontSize:12 }}>📎 Seleccionar archivos</button>
-                  <span style={{ fontSize:11, color:c.text3 }}>{adjuntos.length} de 5 cargados</span>
-                </div>
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:4 }}>Evidencias Adjuntas (Fotos / Documentos — Máx 5):</label>
+                <span style={{ fontSize:11, color:c.text2, display:"block", marginBottom:8 }}>Las imágenes se limpian de metadatos EXIF automáticamente al subirse.</span>
+                <input type="file" multiple ref={fileRef} onChange={e=>handleFiles(e.target.files)} style={{ display:"none" }} />
+                <button onClick={()=>fileRef.current.click()} style={{ ...btnS(c.bg2, c.text), border:`0.5px solid ${c.border}` }}>📎 Seleccionar Archivos</button>
                 {adjuntos.length > 0 && (
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:8 }}>
-                    {adjuntos.map((a,i)=>(
-                      <div key={i} style={{ position:"relative", background:c.bg2, padding:"4px 8px", borderRadius:6, fontSize:11, color:c.text2 }}>
-                        {a.name.slice(0,15)}... <span onClick={()=>setAdjuntos(prev=>prev.filter((_,idx)=>idx!==i))} style={{ color:"#C0392B", cursor:"pointer", marginLeft:4 }}>✕</span>
-                      </div>
-                    ))}
+                  <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:4 }}>
+                    {adjuntos.map((f,i) => <div key={i} style={{ fontSize:12, color:c.text2 }}>✓ {f.name}</div>)}
                   </div>
                 )}
               </div>
-              <button onClick={enviarReporte} disabled={!desc.trim()} style={{ ...btnS(desc.trim()?c.blue:c.bg2, desc.trim()?"#fff":c.text3), marginTop:6 }}>Enviar Reporte Seguro 🔒</button>
+              <button onClick={enviarReporte} disabled={!desc.trim()} style={{ ...btnS(c.blue, "#fff"), opacity:desc.trim()?1:0.5, marginTop:6 }}>Enviar Alerta de Forma Anónima Encriptada</button>
             </div>
           )}
         </div>
       )}
 
-      {/* VISTA: DETALLE DE REPORTE */}
-      {vista === "detalle" && (
-        <div>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-            <button onClick={()=>{play("back"); setVista(selRepDir?"directiva":"lista"); setSelId(null);}} style={{ background:"none", border:"none", color:c.info_tx, cursor:"pointer", fontSize:14 }}>← Volver a la lista</button>
-            <span style={{ fontSize:13, color:c.text3 }}>· Detalle del Expediente #{selId}</span>
-            {esProfesor && !confirmDel && <button onClick={()=>{play("click"); setConfirmDel(true);}} style={{ background:"none", border:"none", color:"#C0392B", cursor:"pointer", fontSize:12, marginLeft:"auto" }}>🗑️ Eliminar</button>}
+      {/* PANTALLA: CANAL DE DIRECTIVA (BUZÓN EXCLUSIVO INTERNO) */}
+      {vista === "directiva" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+            <span style={{ fontSize:14, fontWeight:500, color:c.text, flex:1 }}>Buzón Especial Reservado Directiva</span>
+            <button onClick={()=>{ play("nav"); setVista("crear_dir"); setEnviadoDir(false); }} style={btnS(c.blue, "#fff")}>➕ Emitir Incidencia Interna</button>
           </div>
-
-          {confirmDel && (
-            <div style={{ background:c.warn_bg, border:`0.5px solid ${dark?"#4a2500":"#ffe0b2"}`, padding:12, borderRadius:12, marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:12, color:c.warn_tx, fontWeight:500 }}>¿Confirmas que deseas eliminar permanentemente este caso?</span>
-              <div style={{ display:"flex", gap:6 }}>
-                <button onClick={()=>eliminarReporte(selId, !!selRepDir)} style={{ background:"#C0392B", color:"#fff", border:"none", padding:"4px 10px", borderRadius:6, fontSize:11, cursor:"pointer" }}>Sí, borrar</button>
-                <button onClick={()=>setConfirmDel(false)} style={{ background:c.bg2, color:c.text, border:"none", padding:"4px 10px", borderRadius:6, fontSize:11, cursor:"pointer" }}>No</button>
-              </div>
-            </div>
-          )}
-
-          {selReporte && renderDetalle(selReporte, false)}
-          {selRepDir && renderDetalle(selRepDir, true)}
-        </div>
-      )}
-
-      {/* VISTA: BUZÓN DE DIRECTIVA */}
-      {vista === "directiva" && esProfesor && (
-        <>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <FiltroBar opciones={ESTADOS} valor={filtroD} onChange={setFiltroD} c={c} play={play} />
-            <button onClick={()=>{play("nav"); setVista("crear_dir"); setEnviadoDir(false);}} style={{ ...btnS(c.blue,"#fff"), width:"auto", padding:"5px 12px", borderRadius:8, fontSize:12 }}>+ Reportar a Directiva</button>
-          </div>
+          <FiltroBar opciones={CAT_DIR} valor={filtroD} onChange={setFiltroD} c={c} play={play} />
+          
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {repDirFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={()=>{setSelId(r.id); setVista("detalle");}} esDir={true} esProfesor={true} dark={dark} c={c} play={play} />)}
-            {repDirFiltrados.length===0 && <div style={{ textAlign:"center", padding:"30px 0", color:c.text3, fontSize:13 }}>Ningún caso en el buzón de directiva.</div>}
+            {repDirFiltrados.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"40px 0", color:c.text3, fontSize:14 }}>No hay incidencias registradas en la directiva bajo estos parámetros.</div>
+            ) : (
+              // 💬 FUNCIONALIDAD NUEVA 2: El evento onClick ahora llama a marcarLeidosDir(r.id) para limpiar notificaciones
+              repDirFiltrados.map(r => (
+                <CardReporte key={r.id} r={r} esDir={true} dark={dark} esProfesor={esProfesor} c={c} play={play} onClick={()=>{ setSelId(r.id); setVista("detalle_dir"); marcarLeidosDir(r.id); }} />
+              ))
+            )}
           </div>
-        </>
+        </div>
       )}
 
-      {/* VISTA: CREAR REPORTE A DIRECTIVA */}
-      {vista === "crear_dir" && esProfesor && (
-        <div>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-            <button onClick={()=>{play("back"); setVista("directiva");}} style={{ background:"none", border:"none", color:c.info_tx, cursor:"pointer", fontSize:14 }}>← Volver</button>
-            <h2 style={{ fontSize:15, fontWeight:600, color:c.text }}>Nuevo Reporte a la Directiva / Alcalde</h2>
-          </div>
+      {/* PANTALLA: CREAR REPORTE DIRECTIVA */}
+      {vista === "crear_dir" && (
+        <div style={{ background:c.bg3, border:`0.5px solid ${c.border2}`, borderRadius:14, padding:"18px 16px" }}>
           {enviadoDir ? (
-            <div style={{ textAlign:"center", padding:"30px 10px" }}>
-              <span style={{ fontSize:32 }}>👔</span>
-              <h3 style={{ fontSize:16, fontWeight:500, color:c.text, marginTop:8 }}>Reporte enviado a Directiva</h3>
-              <p style={{ fontSize:13, color:c.text2, marginTop:4, marginBottom:16 }}>El caso fue escalado directamente a la bandeja del Director.</p>
-              <button onClick={()=>{play("back"); setVista("directiva");}} style={{ ...btnS(c.bg2,c.text), width:"auto", padding:"6px 16px" }}>Ir al buzón</button>
+            <div style={{ textAlign:"center", padding:"20px 0" }}>
+              <div style={{ fontSize:40, marginBottom:10 }}>👔</div>
+              <h3 style={{ margin:0, color:c.text, fontSize:18 }}>Incidencia de Directiva Registrada</h3>
+              <p style={{ fontSize:13, color:c.text2, margin:"6px 0 16px 0" }}>Se ha notificado al canal institucional de gestión rectora.</p>
+              <button onClick={()=>setVista("directiva")} style={btnS(c.bg2, c.text)}>Volver a Directiva</button>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Eje o Categoría</label>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {CAT_DIR.map(catOpt => (
-                    <button key={catOpt} onClick={()=>{play("toggle"); setCatDir(catOpt);}} style={{ padding:"6px 12px", borderRadius:8, fontSize:13, cursor:"pointer", background:catDir===catOpt?c.info_bg:c.bg2, color:catDir===catOpt?c.info_tx:c.text2, border:catDir===catOpt?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{CAT_ICON[catOpt]} {catOpt}</button>
-                  ))}
-                </div>
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Categoría Institucional:</label>
+                <select value={catDir} onChange={e=>setCatDir(e.target.value)} style={inp}>
+                  {CAT_DIR.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
               </div>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Descripción confidencial institucional</label>
-                <textarea style={{ ...inp, minHeight:120, resize:"none", fontFamily:"inherit" }} placeholder="Redacte los pormenores del caso institucional..." value={descDir} onChange={e=>setDescDir(e.target.value)} />
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Redacción Técnica del Suceso:</label>
+                <textarea rows={5} placeholder="Describa de forma formal el incidente de infraestructura, conducta u orden administrativo interno." value={descDir} onChange={e=>setDescDir(e.target.value)} style={{ ...inp, resize:"none", fontFamily:"inherit" }} />
               </div>
               <div>
-                <label style={{ fontSize:13, color:c.text2, display:"block", marginBottom:6 }}>Notas / Sugerencias de resolución</label>
-                <input style={inp} placeholder="Propuesta de pasos a seguir por la institución" value={notaDir} onChange={e=>setNotaDir(e.target.value)} />
+                <label style={{ fontSize:13, fontWeight:500, color:c.text, display:"block", marginBottom:6 }}>Notas / Observaciones de Seguridad:</label>
+                <input type="text" placeholder="Ej: Requiere revisión con el comité central" value={notaDir} onChange={e=>setNotaDir(e.target.value)} style={inp} />
               </div>
-              <button onClick={enviarReporteDir} disabled={!descDir.trim()} style={{ ...btnS(descDir.trim()?c.blue:c.bg2, descDir.trim()?"#fff":c.text3), marginTop:6 }}>Enviar a Alta Dirección 🔒</button>
+              <button onClick={enviarReporteDir} disabled={!descDir.trim()} style={{ ...btnS(c.blue, "#fff"), opacity:descDir.trim()?1:0.5, marginTop:6 }}>Registrar en Canal Institucional</button>
             </div>
           )}
         </div>
       )}
+
+      {/* PANTALLAS: DETALLE DE LOS REPORTES */}
+      {vista === "detalle" && selReporte && renderDetalle(selReporte, false)}
+      {vista === "detalle_dir" && selRepDir && renderDetalle(selRepDir, true)}
     </div>
   );
 }
