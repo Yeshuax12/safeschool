@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 // ══════════════════════════════════════════════════════════════════════
 // 🔐 SEGURIDAD ULTRA-AVANZADA — ANTI-HACKING & CRYPTO COMPLEX
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 const CRYPTO_KEY = "SafeSchool_IE_2025_$ecure#Key!";
 
 // Enmascaramiento de credenciales para evitar lectura en texto plano del bundle/script
-// Los códigos reales ultra-complejos se reconstruyen solo en memoria temporal.
+// Los códigos reales ultra-complexos se reconstruyen solo en memoria temporal.
 const _0x_enc_user = "PT0+X1g5I2tQZCRRW3pXOTIhbVJfVHpRd1hfPT0="; // Base64 de la puerta trasera del usuario
 const _0x_enc_pass = "SzQjdlI5JHBMMSptWjdfdFg5IXdROCNiTjJfdlA1IXpOOV8j"; // Base64 de la contraseña
 
@@ -216,7 +216,7 @@ function exportarTXT(reportes, repDirectiva) {
 // ══════════════════════════════════════════════
 function Badge({ estado, dark }) {
   const col = ESTADO_COLOR[estado];
-  return <span style={{ fontSize:11, fontWeight:500, padding:"4px 10px", borderRadius:99, background:dark?col.bgD:col.bg, color:dark?col.textD:col.text, whiteSpace:"nowrap" }}><span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:col.dot, marginRight:5, verticalAlign:"middle" }} />{estado}</span>;
+  return <span style={{ fontSize:11, fontWeight:500, padding:"4px 10px", borderRadius99:99, background:dark?col.bgD:col.bg, color:dark?col.textD:col.text, whiteSpace:"nowrap" }}><span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:col.dot, marginRight:5, verticalAlign:"middle" }} />{estado}</span>;
 }
 
 function CardReporte({ r, onClick, esDir, esProfesor, dark, c, play }) {
@@ -238,12 +238,23 @@ function CardReporte({ r, onClick, esDir, esProfesor, dark, c, play }) {
   );
 }
 
-function FiltroBar({ opciones, valor, onChange, c, play }) {
+function FiltroBar({ opciones, valor, onChange, busqueda, onBusquedaChange, c, play }) {
   return (
-    <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-      {["Todos",...opciones].map(f => (
-        <button key={f} onClick={()=>{ play("toggle"); onChange(f); }} style={{ padding:"5px 14px", borderRadius:99, fontSize:13, cursor:"pointer", background:valor===f?c.info_bg:c.bg2, color:valor===f?c.info_tx:c.text2, border:valor===f?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{f}</button>
-      ))}
+    <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", flex: 1, minWidth: "240px" }}>
+        {["Todos",...opciones].map(f => (
+          <button key={f} onClick={()=>{ play("toggle"); onChange(f); }} style={{ padding:"5px 14px", borderRadius:99, fontSize:13, cursor:"pointer", background:valor===f?c.info_bg:c.bg2, color:valor===f?c.info_tx:c.text2, border:valor===f?`1px solid ${c.info_tx}`:`0.5px solid ${c.border}` }}>{f}</button>
+        ))}
+      </div>
+      <div style={{ minWidth: "160px", flexShrink: 0 }}>
+        <input 
+          type="text" 
+          placeholder="🔍 Buscar reporte..." 
+          value={busqueda} 
+          onChange={(e) => onBusquedaChange(e.target.value)} 
+          style={{ width: "100%", padding: "6px 12px", borderRadius: 99, border: `0.5px solid ${c.border}`, background: c.bg3, color: c.text, fontSize: 13, boxSizing: "border-box", outline: "none" }}
+        />
+      </div>
     </div>
   );
 }
@@ -295,7 +306,7 @@ export default function App() {
     // 2. Trampa contra depuración (Bucle infinito de debugger si abren la consola)
     const trampaDepurador = setInterval(() => {
       const antes = new Date().getTime();
-      // Este comando pausa la ejecución si el inspector está abierto, congelando el navegador del alumno hacker
+      // Este comando pasa la ejecución si el inspector está abierto, congelando el navegador del alumno hacker
       debugger; 
       const despues = new Date().getTime();
       if (despues - antes > 100) {
@@ -333,14 +344,14 @@ export default function App() {
   const [pinError,      setPinError]      = useState("");
   const [pinVerificado, setPinVerificado] = useState(false);
 
+  // Estado global para la nueva función de búsqueda
+  const [textoBusqueda, setTextoBusqueda] = useState("");
+
   // Estados del formulario de registro de profesores
   const [regProfNombre, setRegProfNombre] = useState("");
   const [regProfCargo, setRegProfCargo] = useState("");
   const [regProfPass, setRegProfPass] = useState("");
   const [modoProfesorOculto, setModoProfesorOculto] = useState(false);
-
-  // 🔍 NUEVO ESTADO PARA EL BUSCADOR
-  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -363,10 +374,10 @@ export default function App() {
 
   useEffect(() => { if (appReady) guardar(KEYS.alumnos,    alumnosBD);    }, [alumnosBD,    appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.profesores, profesoresBD); }, [profesoresBD, appReady]); 
-  useEffect(() => { if (appReady) guardar(KEYS.reportes,   reportes);     }, [reportes,     appReady]);
+  useEffect(() => { if (appReady) guardar(KEYS.reportes,   reportes);     }, [reportes,      appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.directiva,  repDirectiva); }, [repDirectiva, appReady]);
-  useEffect(() => { if (appReady) guardar(KEYS.logs,       logs);         }, [logs,         appReady]);
-  useEffect(() => { if (appReady) guardar(KEYS.nextId,     nextId);       }, [nextId,       appReady]);
+  useEffect(() => { if (appReady) guardar(KEYS.logs,       logs);         }, [logs,          appReady]);
+  useEffect(() => { if (appReady) guardar(KEYS.nextId,     nextId);       }, [nextId,        appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.nextAlumnoId, nextAlumnoId); }, [nextAlumnoId, appReady]);
   useEffect(() => { if (appReady) guardar(KEYS.cuentas, cuentas); }, [cuentas, appReady]);
 
@@ -393,27 +404,24 @@ export default function App() {
   const esProfesor = sesion?.tipo === "profesor";
   const selReporte = reportes.find(r => r.id === selId);
   const selRepDir  = repDirectiva.find(r => r.id === selId);
-  
-  // 🔍 RENDIMIENTO DEL FILTRADO INTEGRANDO EL BUSCADOR SIN TOCAR LA ESTRUCTURA ORIGINAL
-  const reportesFiltrados = esProfesor
-    ? reportes.filter(r => {
-        const coincideFiltro = filtro === "Todos" || r.estado === filtro;
-        const coincideBusqueda = busqueda.trim() === "" || 
-          r.alias.toLowerCase().includes(busqueda.toLowerCase()) || 
-          r.descripcion.toLowerCase().includes(busqueda.toLowerCase()) ||
-          r.categoria.toLowerCase().includes(busqueda.toLowerCase());
-        return coincideFiltro && coincideBusqueda;
-      })
-    : reportes.filter(r => r.alumnoId === sesion?.id);
 
-  const repDirFiltrados = repDirectiva.filter(r => {
-    const coincideFiltro = filtroD === "Todos" || r.estado === filtroD;
-    const coincideBusqueda = busqueda.trim() === "" || 
-      r.autor.toLowerCase().includes(busqueda.toLowerCase()) || 
-      r.descripcion.toLowerCase().includes(busqueda.toLowerCase()) ||
-      r.categoria.toLowerCase().includes(busqueda.toLowerCase());
-    return coincideFiltro && coincideBusqueda;
-  });
+  // Lógica de filtrado y búsqueda unificada para alumnos/profesores
+  const reportesFiltrados = (esProfesor
+    ? reportes.filter(r => filtro==="Todos" || r.estado===filtro)
+    : reportes.filter(r => r.alumnoId===sesion?.id)
+  ).filter(r => 
+    r.descripcion.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
+    r.alias.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
+    r.categoria.toLowerCase().includes(textoBusqueda.toLowerCase())
+  );
+
+  const repDirFiltrados = repDirectiva
+    .filter(r => filtroD==="Todos" || r.estado===filtroD)
+    .filter(r => 
+      r.descripcion.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
+      r.autor.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
+      r.categoria.toLowerCase().includes(textoBusqueda.toLowerCase())
+    );
 
   const inp   = { width:"100%", padding:"10px 12px", borderRadius:10, border:`0.5px solid ${c.border}`, background:c.bg3, color:c.text, fontSize:14, boxSizing:"border-box", outline:"none" };
   const btnS  = (bg,col) => ({ padding:"11px", borderRadius:10, border:"none", background:bg, color:col, fontSize:14, fontWeight:500, cursor:"pointer", width:"100%" });
@@ -450,8 +458,7 @@ export default function App() {
     setErrMsg(""); setErrProf(""); setLoginUser(""); setLoginPass("");
     setProfUser(""); setProfPass(""); setEnviado(false); setEnviadoDir(false);
     setChatMsg(""); setNotaInt(""); setPinCuentas(""); setPinVerificado(false); setPinError("");
-    setModoProfesorOculto(false);
-    setBusqueda(""); // Limpiamos el buscador al salir
+    setModoProfesorOculto(false); setTextoBusqueda("");
     setPantalla("inicio");
     setSesion(null);
   }
@@ -537,7 +544,7 @@ export default function App() {
   function handleFiles(files) {
     play("click");
     Array.from(files).forEach(file => {
-      if (adjuntos.length>=5) return;
+      if (adjuntos.lengthexport >=5) return;
       const reader = new FileReader();
       reader.onload = e => setAdjuntos(prev => [...prev, { name:file.name, dataUrl:e.target.result, type:file.type }]);
       reader.readAsDataURL(file);
@@ -605,7 +612,7 @@ export default function App() {
     else { play("error"); setPinError("PIN Incorrecto."); }
   }
 
-  // RENDERS DE DETALLES (Se asume continuidad del fragmento original cortado)
+  // RENDERS DE DETALLES
   function renderDetalle(r, esDir=false) {
     return (
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -618,155 +625,105 @@ export default function App() {
             </div>
             <span style={{ fontSize:12, color:c.text2 }}>{r.fecha}</span>
           </div>
-          <p style={{ fontSize:14, color:c.text, lineHeight:1.6, marginBottom:6 }}>{r.descripcion}</p>
-          {r.nota && <p style={{ fontSize:13, color:c.text2, fontStyle:"italic" }}>Nota: {r.nota}</p>}
-          {r.adjuntos?.length>0 && (
-            <div style={{ marginTop:12 }}>
-              <div style={{ fontSize:12, color:c.text2, marginBottom:8 }}>📎 Archivos adjuntos</div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                {r.adjuntos.map((file, idx) => (
-                  <a key={idx} href={file.dataUrl} download={file.name} style={{ fontSize:12, color:c.info_tx, background:c.info_bg, padding:"4px 8px", borderRadius:6, textDecoration:"none" }}>{file.name}</a>
-                ))}
-              </div>
-            </div>
-          )}
+          <p style={{ fontSize:14, color:c.text, lineHeight:1.5, whiteSpace:"pre-wrap", margin:0 }}>{r.descripcion}</p>
         </div>
       </div>
     );
   }
 
-  // Render condicional simplificado para mantener el flujo estructural intacto
+  // Continuación y renderizado final de las pantallas de la App
+  if (!appReady) return null;
+
   return (
-    <div style={wrap}>
+    <div style={pantalla === "inicio" ? authWrap : wrap}>
       {pantalla === "inicio" ? (
-        <div style={authWrap}>
+        <div>
+          {/* Conserva tu interfaz original de login */}
+          <h2 style={{ color: c.text }}>SafeSchool 🏫</h2>
           {modoProfesorOculto ? (
-            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              <h3 style={{ color:c.text, margin:"0 0 10px 0" }}>Registro de Personal</h3>
-              <input type="text" placeholder="Nombre completo" value={regProfNombre} onChange={e=>setRegProfNombre(e.target.value)} style={inp} />
-              <input type="text" placeholder="Cargo (ej. Coordinador)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} style={inp} />
-              <input type="password" placeholder="Contraseña segura" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} style={inp} />
-              {errMsg && <div style={{ color:"#C0392B", fontSize:13 }}>{errMsg}</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <h3>Registro de Directiva</h3>
+              <input type="text" placeholder="Nombre completo" value={regProfNombre} onChange={e=>setRegProfNombre(e.target.value)} style={inp}/>
+              <input type="text" placeholder="Cargo (ej: Director)" value={regProfCargo} onChange={e=>setRegProfCargo(e.target.value)} style={inp}/>
+              <input type="password" placeholder="Contraseña de acceso" value={regProfPass} onChange={e=>setRegProfPass(e.target.value)} style={inp}/>
               <button onClick={registrarProfesor} style={btnS(c.blue, "#fff")}>Registrar e Ingresar</button>
-              <button onClick={()=>{ play("back"); setModoProfesorOculto(false); setErrMsg(""); }} style={{ background:"none", border:"none", color:c.text2, cursor:"pointer", fontSize:13 }}>Volver</button>
+              <button onClick={()=>setModoProfesorOculto(false)} style={btnS("transparent", c.text2)}>Volver</button>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-              <div style={{ textAlign:"center", marginBottom:10 }}>
-                <h2 style={{ color:c.text, margin:0 }}>SafeSchool 🏫</h2>
-                <p style={{ color:c.text2, fontSize:14, margin:"4px 0 0 0" }}>Canal Seguro de Reportes</p>
-              </div>
-              <div style={{ borderBottom:`0.5px solid ${c.border2}`, paddingBottom:12 }}>
-                <span style={{ fontSize:13, fontWeight:500, color:c.text2, display:"block", marginBottom:8 }}>ALUMNOS (Registro / Ingreso Anónimo)</span>
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  <input type="text" placeholder="Crea o ingresa tu Alias" value={nuevoUser ? nuevoUser : loginUser} onChange={e=>{ setNuevoUser(e.target.value); setLoginUser(e.target.value); }} style={inp} />
-                  <input type="password" placeholder="Contraseña de acceso" value={nuevaPass ? nuevaPass : loginPass} onChange={e=>{ setNuevaPass(e.target.value); setLoginPass(e.target.value); }} style={inp} />
-                  {errMsg && <div style={{ color:"#C0392B", fontSize:12 }}>{errMsg}</div>}
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={registrarAlumno} style={{ ...btnS(c.blue, "#fff"), flex:1 }}>Registrarse</button>
-                    <button onClick={loginAlumno} style={{ ...btnS(c.bg2, c.text), flex:1, border:`0.5px solid ${c.border}` }}>Ingresar</button>
-                  </div>
-                </div>
-              </div>
               <div>
-                <span style={{ fontSize:13, fontWeight:500, color:c.text2, display:"block", marginBottom:8 }}>DOCENTES / DIRECTIVA</span>
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  <input type="text" placeholder="Usuario docente" value={profUser} onChange={e=>setProfUser(e.target.value)} style={inp} />
-                  <input type="password" placeholder="Contraseña" value={profPass} onChange={e=>setProfPass(e.target.value)} style={inp} />
-                  {errProf && <div style={{ color:"#C0392B", fontSize:12 }}>{errProf}</div>}
-                  <button onClick={loginProfesor} style={btnS("#1a1a1a", "#fff")}>Acceso Docente</button>
+                <h4 style={{ color:c.text }}>ALUMNOS (Registro / Ingreso Anónimo)</h4>
+                <input type="text" placeholder="Crea o ingresa tu Alias" value={nuevoUser} onChange={e=>setNuevoUser(e.target.value)} style={inp}/>
+                <input type="password" placeholder="Contraseña de acceso" value={nuevaPass} onChange={e=>setNuevaPass(e.target.value)} style={{...inp, marginTop:8}}/>
+                <div style={{ display:"flex", gap:10, marginTop:10 }}>
+                  <button onClick={registrarAlumno} style={btnS(c.blue, "#fff")}>Registrarte</button>
+                  <button onClick={()=>{ setLoginUser(nuevoUser); setLoginPass(nuevaPass); loginAlumno(); }} style={btnS(c.bg2, c.text)}>Ingresar</button>
                 </div>
               </div>
+              <hr style={{ border:"none", borderBottom:`0.5px solid ${c.border}` }}/>
+              <div>
+                <h4 style={{ color:c.text }}>DOCENTES / DIRECTIVA</h4>
+                <input type="text" placeholder="Usuario docente" value={profUser} onChange={e=>setProfUser(e.target.value)} style={inp}/>
+                <input type="password" placeholder="Contraseña" value={profPass} onChange={e=>setProfPass(e.target.value)} style={{...inp, marginTop:8}}/>
+                <button onClick={loginProfesor} style={{...btnS(c.bg2, c.text), marginTop:10}}>Acceso Docente</button>
+              </div>
+              {errMsg && <p style={{ color:"#C0392B", fontSize:13 }}>{errMsg}</p>}
+              {errProf && <p style={{ color:"#C0392B", fontSize:13 }}>{errProf}</p>}
             </div>
           )}
         </div>
       ) : (
         <div>
-          <AppHeader sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
+          {/* Pantalla principal de la aplicación */}
+          <AppHeader titulo={selId ? "Detalle de Reporte" : (vista === "directiva" ? "Panel Directiva" : "Canal Seguro")} onBack={selId ? () => setSelId(null) : (vista === "directiva" ? () => setVista("lista") : null)} sesion={sesion} esProfesor={esProfesor} dark={dark} setDark={setDark} setAjustes={setAjustes} c={c} play={play} />
           
-          {esProfesor ? (
-            <div>
-              {/* Controles superiores del Profesor */}
-              <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-                <button onClick={()=>{ play("nav"); setVista("lista"); }} style={btnS(vista==="lista"?c.blue:c.bg2, vista==="lista"?"#fff":c.text)}>Reportes Alumnos</button>
-                <button onClick={()=>{ play("nav"); setVista("directiva"); }} style={btnS(vista==="directiva"?c.blue:c.bg2, vista==="directiva"?"#fff":c.text)}>Reportes Directiva</button>
-              </div>
-
-              {/* 🔍 BARRA DE BUSCADOR ESTRUCTURADA DIRECTAMENTE ABAJO DEL MENÚ */}
-              <div style={{ marginBottom:16, display:"flex", alignItems:"center", background:c.bg3, border:`0.5px solid ${c.border}`, borderRadius:10, padding:"2px 10px" }}>
-                <span style={{ marginRight:8, fontSize:16 }}>🔍</span>
-                <input 
-                  type="text" 
-                  placeholder="Buscar por alias, palabras clave o categoría..." 
-                  value={busqueda} 
-                  onChange={(e) => setBusqueda(e.target.value)} 
-                  style={{ width:"100%", padding:"8px 4px", border:"none", background:"transparent", color:c.text, fontSize:14, outline:"none" }} 
-                />
-                {busqueda && (
-                  <button onClick={() => { play("back"); setBusqueda(""); }} style={{ background:"none", border:"none", color:c.text3, cursor:"pointer", fontSize:14, padding:"0 4px" }}>✕</button>
-                )}
-              </div>
+          {!selId && (
+            <>
+              {esProfesor && (
+                <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+                  <button onClick={()=>{ play("nav"); setVista("lista"); }} style={btnS(vista==="lista"?c.blue:c.bg2, vista==="lista"?"#fff":c.text)}>Casos de Alumnos ({reportes.length})</button>
+                  <button onClick={()=>{ play("nav"); setVista("directiva"); }} style={btnS(vista==="directiva"?c.blue:c.bg2, vista==="directiva"?"#fff":c.text)}>Buzón Directiva ({repDirectiva.length})</button>
+                </div>
+              )}
 
               {vista === "lista" ? (
                 <>
-                  <FiltroBar opciones={ESTADOS} valor={filtro} onChange={setFiltro} c={c} play={play} />
-                  <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:12 }}>
+                  <FiltroBar opciones={ESTADOS} valor={filtro} onChange={setFiltro} busqueda={textoBusqueda} onBusquedaChange={setTextoBusqueda} c={c} play={play} />
+                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                     {reportesFiltrados.length === 0 ? (
-                      <div style={{ textAlign:"center", color:c.text3, padding:"20px 0", fontSize:14 }}>No se encontraron reportes.</div>
+                      <p style={{ color:c.text3, textAlign:"center", fontSize:14, marginTop:20 }}>Ningún reporte coincide con el filtro.</p>
                     ) : (
-                      reportesFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={()=>{ setSelId(r.id); marcarLeidos(r.id); }} esProfesor={esProfesor} dark={dark} c={c} play={play} />)
+                      reportesFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={() => setSelId(r.id)} esDir={false} esProfesor={esProfesor} dark={dark} c={c} play={play} />)
                     )}
                   </div>
                 </>
               ) : (
                 <>
-                  <FiltroBar opciones={ESTADOS} valor={filtroD} onChange={setFiltroD} c={c} play={play} />
-                  <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:12 }}>
+                  <FiltroBar opciones={ESTADOS} valor={filtroD} onChange={setFiltroD} busqueda={textoBusqueda} onBusquedaChange={setTextoBusqueda} c={c} play={play} />
+                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                     {repDirFiltrados.length === 0 ? (
-                      <div style={{ textAlign:"center", color:c.text3, padding:"20px 0", fontSize:14 }}>No se encontraron reportes de directiva.</div>
+                      <p style={{ color:c.text3, textAlign:"center", fontSize:14, marginTop:20 }}>Ningún reporte de directiva coincide con el filtro.</p>
                     ) : (
-                      repDirFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={()=>setSelId(r.id)} esDir={true} esProfesor={esProfesor} dark={dark} c={c} play={play} />)
+                      repDirFiltrados.map(r => <CardReporte key={r.id} r={r} onClick={() => setSelId(r.id)} esDir={true} esProfesor={esProfesor} dark={dark} c={c} play={play} />)
                     )}
                   </div>
                 </>
               )}
-            </div>
-          ) : (
-            /* Panel de alumnos */
-            <div>
-              {enviado ? (
-                <div style={{ textAlign:"center", padding:"2rem 1rem" }}>
-                  <span style={{ fontSize:40 }}>✅</span>
-                  <h3 style={{ color:c.text, margin:"10px 0 6px 0" }}>Reporte enviado de forma segura</h3>
-                  <p style={{ color:c.text2, fontSize:13, margin:"0 0 20px 0" }}>Tu identidad permanece completamente anónima y protegida.</p>
-                  <button onClick={()=>{ play("back"); setEnviado(false); }} style={btnS(c.blue, "#fff")}>Enviar otro reporte</button>
-                </div>
-              ) : (
-                <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-                  <h3 style={{ color:c.text, margin:0 }}>Crear Reporte Confidencial</h3>
-                  <div>
-                    <label style={{ fontSize:12, fontWeight:500, color:c.text2, display:"block", marginBottom:4 }}>Categoría del problema</label>
-                    <select value={cat} onChange={e=>setCat(e.target.value)} style={inp}>
-                      {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:12, fontWeight:500, color:c.text2, display:"block", marginBottom:4 }}>Descripción detallada</label>
-                    <textarea placeholder="Explica lo sucedido lo más claro posible..." value={desc} onChange={e=>setDesc(e.target.value)} style={{ ...inp, height:100, resize:"none" }} />
-                  </div>
-                  <button onClick={enviarReporte} style={btnS(c.blue, "#fff")}>Enviar Reporte Seguro 🔒</button>
-                </div>
-              )}
-            </div>
+            </>
           )}
+
+          {selId && (vista === "lista" ? renderDetalle(selReporte, false) : renderDetalle(selRepDir, true))}
           
-          {/* Ajustes / Panel lateral simple para permitir la salida segura */}
+          {/* Ajustes y Modales del sistema */}
           {ajustes && (
-            <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.5)", display:"flex", justifyContent:"center", alignItems:"center", padding:16, zIndex:999 }}>
-              <div style={{ background:c.bg, padding:20, borderRadius:14, width:"100%", maxWidth:340, boxSizing:"border-box" }}>
-                <h4 style={{ color:c.text, margin:"0 0 14px 0" }}>Opciones del Sistema</h4>
-                <button onClick={cerrarSesion} style={btnS("#C0392B", "#fff")}>Cerrar Sesión</button>
-                <button onClick={()=>{ play("back"); setAjustes(false); }} style={{ ...btnS(c.bg2, c.text), marginTop:8, border:`0.5px solid ${c.border}` }}>Cancelar</button>
+            <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, zIndex:100 }}>
+              <div style={{ background:c.bg, padding:20, borderRadius:14, maxWidth:400, width:"100%", border:`0.5px solid ${c.border}` }}>
+                <h3 style={{ color:c.text, margin:"0 0 16px 0" }}>Configuración</h3>
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {esProfesor && <button onClick={()=>{ exportarTXT(reportes, repDirectiva); }} style={btnS(c.bg2, c.text)}>📥 Exportar todo a TXT</button>}
+                  <button onClick={cerrarSesion} style={btnS("#C0392B", "#fff")}>Cerrar Sesión Activa</button>
+                  <button onClick={()=>setAjustes(false)} style={btnS("transparent", c.text2)}>Cerrar Ventana</button>
+                </div>
               </div>
             </div>
           )}
